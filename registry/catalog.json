@@ -63,7 +63,7 @@
     {
       "id": "thodmedia",
       "name": "ThodMedia",
-      "description": "Преобразование фото, видео и звука. Сжатие, обрезка и удаление фона без отправки файлов в сеть.",
+      "description": "Преобразование фото, видео и звука. Сжатие, обрезка и работа с аудиодорожками без отправки файлов в сеть.",
       "repository": "ThodProd/ThodMedia",
       "category": "Медиа",
       "icon": "mixer",
@@ -93,7 +93,32 @@
       "icon": "copy",
       "mode": "embedded",
       "artworkUrl": "https://raw.githubusercontent.com/ThodProd/ThodHUB-Registry/main/assets/thodclip.svg",
-      "iconUrl": "https://raw.githubusercontent.com/ThodProd/ThodHUB-Registry/main/assets/icons/thodclip.svg"
+      "iconUrl": "https://raw.githubusercontent.com/ThodProd/ThodHUB-Registry/main/assets/icons/thodclip.svg",
+      "kind": "Буфер обмена"
+    },
+    {
+      "id": "thodcanvas",
+      "name": "ThodCanvas",
+      "kind": "Редактор изображений",
+      "description": "Слои, кисти, текст и выделения. Удаление и замена фона нейросетью, экспорт в исходном разрешении.",
+      "repository": "ThodProd/ThodCanvas",
+      "category": "Работа",
+      "icon": "library",
+      "mode": "embedded",
+      "iconUrl": "https://raw.githubusercontent.com/ThodProd/ThodHUB-Registry/main/assets/icons/thodcanvas.svg",
+      "artworkUrl": "https://raw.githubusercontent.com/ThodProd/ThodHUB-Registry/main/assets/thodcanvas.svg"
+    },
+    {
+      "id": "forcedeletehelper",
+      "name": "ForceDeleteHelper",
+      "kind": "Удаление файлов",
+      "description": "Анализ блокировок, остановка удерживающих файл процессов и удаление файлов или папок разными способами.",
+      "repository": "ThodProd/ForceDeleteHelper",
+      "category": "Система",
+      "icon": "copy",
+      "mode": "standalone",
+      "iconUrl": "https://raw.githubusercontent.com/ThodProd/ThodHUB-Registry/main/assets/icons/forcedeletehelper.svg",
+      "artworkUrl": "https://raw.githubusercontent.com/ThodProd/ThodHUB-Registry/main/assets/forcedeletehelper.svg"
     }
   ]
 }

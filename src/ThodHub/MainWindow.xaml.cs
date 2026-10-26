@@ -38,6 +38,7 @@ public partial class MainWindow : Window
         Closing += async (_, e) =>
         {
             if(_closing) return;
+            if(!ConfirmDiscard()){e.Cancel=true;return;}
             e.Cancel = true; _closing = true;
             foreach(var c in _downloads.Values) await c.CancelAsync();
             foreach(var worker in _workers.Values) await worker.DisposeAsync();
@@ -72,9 +73,10 @@ public partial class MainWindow : Window
         }
         catch(Exception ex)
         {
-            MessageBox.Show("Не удалось открыть интерфейс. Проверь Microsoft Edge WebView2 Runtime.\n\n" + ex.Message, "ThodHUB", MessageBoxButton.OK, MessageBoxImage.Error);
+            Browser.Visibility=Visibility.Collapsed;StartupHelp.Visibility=Visibility.Visible;StartupError.Text=ex.Message;
         }
     }
+    private void WebViewDownload_Click(object sender,RoutedEventArgs e) => Process.Start(new ProcessStartInfo("https://developer.microsoft.com/microsoft-edge/webview2/#download-section"){UseShellExecute=true});
     private async void OnMessage(object? sender, CoreWebView2WebMessageReceivedEventArgs e)
     {
         if(!e.Source.StartsWith(Origin + "/", StringComparison.Ordinal)) return;
@@ -96,7 +98,9 @@ public partial class MainWindow : Window
         if(_closing || Browser.CoreWebView2 is null) return;
         Browser.CoreWebView2.PostWebMessageAsJson(JsonSerializer.Serialize(data, HubJson.Options));
     }
-    private object Snapshot() => new { catalog = _catalog, settings = _store.Settings, dataRoot = _store.DataRoot, hubVersion = "0.1.0", apiVersion = 1, native = true };
+    private bool _moduleDirty;
+    private bool ConfirmDiscard() => !_moduleDirty || MessageBox.Show(this,"В открытой программе есть несохранённые изменения. Сначала сохраните проект, чтобы продолжить работу позже.\n\nВсё равно закрыть программу?","Несохранённые изменения",MessageBoxButton.YesNo,MessageBoxImage.Warning,MessageBoxResult.No)==MessageBoxResult.Yes;
+    private object Snapshot() => new { catalog = _catalog, settings = _store.Settings, dataRoot = _store.DataRoot, hubVersion = typeof(MainWindow).Assembly.GetName().Version!.ToString(3), apiVersion = 1, native = true };
     private async Task<object?> HandleAsync(string method, JsonElement p)
     {
         if(method.StartsWith("backups.",StringComparison.Ordinal))return await HandleBackupAsync(method,p);
@@ -143,16 +147,19 @@ public partial class MainWindow : Window
             case "hub.fullscreen":
                 var enabled=p.GetProperty("enabled").GetBoolean();
                 SetFullscreen(enabled);return enabled;
-            case "app.close": _activeModule = null; return true;
+            case "app.close":
+                if(!ConfirmDiscard())throw new OperationCanceledException("Сохраните проект перед закрытием программы.");
+                _moduleDirty=false;_activeModule = null; return true;
             case "app.uninstall":
             case "app.rollback":
                 var appId = p.GetProperty("id").GetString()!;
+                if(_activeModule==appId&&!ConfirmDiscard())throw new OperationCanceledException("Сохраните проект перед удалением или откатом программы.");
                 if(_downloads.ContainsKey(appId)||!_removing.Add(appId)) throw new InvalidOperationException("Дождитесь завершения операции.");
                 try
                 {
                 if(_workers.Remove(appId, out var worker)) await worker.DisposeAsync();
                 await Task.Run(()=>StandaloneLauncher.AssertNotRunning(_store,appId));
-                if(_activeModule == appId) _activeModule = null;
+                if(_activeModule == appId) { _activeModule = null;_moduleDirty=false; }
                 if(method == "app.uninstall")
                 {
                     if(p.TryGetProperty("backup",out var backup)&&backup.GetBoolean())await CreateBackupAsync(appId,true);
@@ -205,6 +212,8 @@ public partial class MainWindow : Window
     {
         if(_downloads.ContainsKey(id)||_removing.Contains(id)) throw new InvalidOperationException("Программа обновляется.");
         var m = _store.Manifest(id);
+        if(!ConfirmDiscard())throw new OperationCanceledException("Сохраните проект перед переключением программы.");
+        _moduleDirty=false;
         if(m.Mode=="standalone")
         {
             _activeModule=null;
@@ -226,6 +235,7 @@ public partial class MainWindow : Window
         void Require(string permission) { if(!m.Permissions.Contains(permission)) throw new UnauthorizedAccessException("Не объявлено разрешение: " + permission); }
         switch(method)
         {
+            case "state.dirty": _moduleDirty=args.GetProperty("dirty").GetBoolean();return true;
             case "settings.get": Require("settings"); return _store.LoadModuleSettings(id);
             case "settings.set": Require("settings"); await _store.SaveModuleSettingsAsync(id, args); return true;
             case "settings.path": Require("settings"); return _store.DataDirectory(id);

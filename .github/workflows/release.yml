@@ -23,4 +23,7 @@ jobs:
         shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release create $env:GITHUB_REF_NAME artifacts/release/* --verify-tag --generate-notes
+        run: |
+          gh release view $env:GITHUB_REF_NAME --json tagName 2>$null
+          if ($LASTEXITCODE -eq 0) { Write-Host 'Published release already exists; keeping immutable assets.'; exit 0 }
+          gh release create $env:GITHUB_REF_NAME artifacts/release/* --verify-tag --generate-notes

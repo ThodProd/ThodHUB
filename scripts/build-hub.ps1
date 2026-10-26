@@ -9,6 +9,7 @@ try {
     dotnet publish src/ThodHub -c Release -r win-x64 --self-contained true -o $stage --nologo
     if ($LASTEXITCODE) { throw 'Build failed' }
     New-Item -ItemType Directory -Path $OutputDirectory -Force | Out-Null
+    $OutputDirectory = (Resolve-Path -LiteralPath $OutputDirectory).Path
     $version = ([xml](Get-Content src/ThodHub/ThodHub.csproj)).Project.PropertyGroup.Version
     $zip = Join-Path ([IO.Path]::GetFullPath($OutputDirectory)) "ThodHUB-$version-win-x64.zip"
     if (Test-Path -LiteralPath $zip) { throw "Already exists: $zip" }

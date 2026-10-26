@@ -32,6 +32,7 @@ The host owns navigation, close and fullscreen. Support narrow windows and both 
 | settings.get | settings | null | saved JSON, initially null |
 | settings.set | settings | JSON | true; atomic settings.json write |
 | settings.path | settings | null | absolute data directory |
+| state.dirty | none | {dirty:true/false} | true; hub 0.1.1+ asks before closing a document with unsaved edits |
 | clipboard.write | clipboard.write | {text} | true |
 | dialog.folder | dialog.folder | null | absolute selected folder or null |
 | files.export | files.export | {name,base64} | {canceled,filePath?}; save dialog, <=8 MiB |
@@ -58,7 +59,7 @@ No links, traversal, reserved Windows names, duplicate paths or alternate stream
 
 Catalog entry:
 ```json
-{"id":"my-app","name":"My App","description":"What it does.","repository":"ThodProd/MyApp","category":"Работа","icon":"library","mode":"standalone","artworkUrl":"https://raw.githubusercontent.com/ThodProd/ThodHUB-Registry/main/assets/my-app.svg"}
+{"id":"my-app","name":"My App","kind":"Редактор","description":"Редактирование локальных документов.","repository":"ThodProd/MyApp","category":"Работа","icon":"library","iconUrl":"https://raw.githubusercontent.com/ThodProd/ThodHUB-Registry/main/assets/icons/my-app.svg","mode":"standalone","artworkUrl":"https://raw.githubusercontent.com/ThodProd/ThodHUB-Registry/main/assets/my-app.svg"}
 ```
 Catalog has schemaVersion:1 and an apps array. Modes must match manifest. Icons: library, resume, mixer, vpn, monitor, copy, code.
 Artwork must be an HTTPS raw.githubusercontent.com URL. See `registry/` and `schemas/`.

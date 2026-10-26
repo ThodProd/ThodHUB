@@ -99,9 +99,9 @@ function renderSettings(){
 }
 function render(){applyTheme();renderSidebar();if(route==='library')renderLibrary();else if(route==='updates')renderUpdates();else if(route==='settings')renderSettings();for(const id of downloads.keys())updateProgress(id);}
 async function navigate(next){
+  if(isNative) await native('app.close');
   route=next;activeId=null;moduleGeneration++;$('#module-area').hidden=true;$('#module-frame').src='about:blank';$('#page').hidden=false;
   if(fullscreen)await setFullscreen(false);
-  if(isNative) native('app.close').catch(()=>{});
   $('#breadcrumb').textContent='Рабочее пространство';render();
 }
 function showCatalog(){category='Все';filter='';$('#catalog-search').value='';renderCatalog();$('#catalog-dialog').showModal();setTimeout(()=>$('#catalog-search').focus(),0);}
@@ -141,6 +141,7 @@ function updateProgress(id){
   });
 }
 async function openApp(id){
+  if(activeId===id&&route==='module')return;
   try{
     if(fullscreen)await setFullscreen(false);
     const result=await native('app.open',{id});moduleGeneration++;activeId=id;route='module';

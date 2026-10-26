@@ -18,7 +18,7 @@ if(args.Length==4&&args[0]=="--validate-package")
     finally{if(Path.GetFullPath(temporary).StartsWith(Path.GetFullPath(Path.GetTempPath()),StringComparison.OrdinalIgnoreCase)&&Path.GetFileName(temporary).StartsWith("thodhub-validation-")&&Directory.Exists(temporary))Directory.Delete(temporary,true);}
 }
 
-if(args.Length > 0 && args[0] == "--seed")
+if(args.Length > 0 && args[0] is "--seed" or "--install-local")
 {
     var store = new HubStore(args[1]);
     var catalog = HubJson.Read<Catalog>(await File.ReadAllTextAsync(args[3]));
@@ -29,9 +29,12 @@ if(args.Length > 0 && args[0] == "--seed")
     var manifest = HubJson.Read<ModuleManifest>(await reader.ReadToEndAsync());
     app.Release = await Describe(args[2], manifest.Version, app.Repository);
     await new PackageInstaller(store).InstallAsync(args[2], app);
-    await HubStore.WriteAtomicAsync(Path.Combine(store.CacheRoot, "catalog.json"), HubJson.Write(catalog));
-    await store.ChangeAsync(s => s.CheckOnStartup = false);
-    Console.WriteLine("Seeded " + id); return;
+    if(args[0]=="--seed")
+    {
+        await HubStore.WriteAtomicAsync(Path.Combine(store.CacheRoot, "catalog.json"), HubJson.Write(catalog));
+        await store.ChangeAsync(s => s.CheckOnStartup = false);
+    }
+    Console.WriteLine("Installed " + id); return;
 }
 var root = Path.Combine(Path.GetTempPath(), "thodhub-tests-" + Guid.NewGuid().ToString("N"));
 Directory.CreateDirectory(root);
