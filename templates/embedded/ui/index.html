@@ -1,0 +1,9 @@
+<!doctype html><html lang="ru"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Новая утилита</title><style>body{font:15px 'Segoe UI',sans-serif;margin:32px;color:#222}button,input{font:inherit;padding:8px}label{display:block;margin:12px 0}</style>
+<h1>Новая утилита</h1><p>Шаблон SDK: замените настоящим интерфейсом перед выпуском.</p>
+<label>Заметка <input id="note"></label><button id="save">Сохранить</button><p id="status" role="status"></p>
+<script src="thodhub.js"></script><script>
+const note=document.querySelector('#note'),status=document.querySelector('#status');
+thodHub.call('settings.get').then(s=>note.value=s?.note||'').catch(e=>status.textContent=e.message);
+document.querySelector('#save').onclick=async()=>{try{await thodHub.call('settings.set',{note:note.value});status.textContent='Сохранено';}catch(e){status.textContent=e.message;}};
+</script></html>

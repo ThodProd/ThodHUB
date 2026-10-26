@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <AssemblyName>ThodHUB</AssemblyName>
+    <Version>0.1.0</Version>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <ApplicationIcon>assets/thodhub.ico</ApplicationIcon>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../ThodHub.Core/ThodHub.Core.csproj" />
+    <PackageReference Include="Microsoft.Web.WebView2" Version="1.0.4314.35" />
+    <Content Include="wwwroot/**/*" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="../../registry/catalog.json" Link="catalog.json" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="../../docs/AGENT-PROMPT.md" Link="agent-prompt.md" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+</Project>

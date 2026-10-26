@@ -1,0 +1,99 @@
+{
+  "schemaVersion": 1,
+  "apps": [
+    {
+      "id": "o-sebe",
+      "name": "О себе",
+      "description": "Шесть шаблонов резюме, сохранение черновиков и экспорт готового документа в PDF.",
+      "repository": "ThodProd/o-sebe",
+      "category": "Работа",
+      "icon": "resume",
+      "mode": "standalone",
+      "artworkUrl": "https://raw.githubusercontent.com/ThodProd/ThodHUB-Registry/main/assets/o-sebe.svg",
+      "kind": "Резюме",
+      "iconUrl": "https://raw.githubusercontent.com/ThodProd/ThodHUB-Registry/main/assets/icons/o-sebe.svg"
+    },
+    {
+      "id": "thodmixer",
+      "name": "ThodMixer",
+      "description": "Управление аудиодорожками, маршрутизация звука и подключение MIDI-контроллеров.",
+      "repository": "ThodProd/ThodMixer",
+      "category": "Аудио",
+      "icon": "mixer",
+      "mode": "standalone",
+      "artworkUrl": "https://raw.githubusercontent.com/ThodProd/ThodHUB-Registry/main/assets/thodmixer.svg",
+      "kind": "Аудиомикшер",
+      "iconUrl": "https://raw.githubusercontent.com/ThodProd/ThodHUB-Registry/main/assets/icons/thodmixer.svg"
+    },
+    {
+      "id": "thodvpn",
+      "name": "ThodVPN",
+      "description": "Профили подключений, выбор сервера и настройка туннелирования.",
+      "repository": "ThodProd/ThodVPN",
+      "category": "Сеть",
+      "icon": "vpn",
+      "mode": "standalone",
+      "artworkUrl": "https://raw.githubusercontent.com/ThodProd/ThodHUB-Registry/main/assets/thodvpn.svg",
+      "kind": "VPN",
+      "iconUrl": "https://raw.githubusercontent.com/ThodProd/ThodHUB-Registry/main/assets/icons/thodvpn.svg"
+    },
+    {
+      "id": "thodmonitor",
+      "name": "Thod Monitor",
+      "description": "Датчики компьютера, настраиваемые оверлеи и уведомления о нагрузке.",
+      "repository": "ThodProd/ThodMonitor",
+      "category": "Система",
+      "icon": "monitor",
+      "mode": "standalone",
+      "artworkUrl": "https://raw.githubusercontent.com/ThodProd/ThodHUB-Registry/main/assets/thodmonitor.svg",
+      "kind": "Мониторинг ПК",
+      "iconUrl": "https://raw.githubusercontent.com/ThodProd/ThodHUB-Registry/main/assets/icons/thodmonitor.svg"
+    },
+    {
+      "id": "copyall",
+      "name": "CopyAll",
+      "description": "Копирование всех путей в папке через контекстное меню. Просмотр структуры и экспорт в текст.",
+      "repository": "ThodProd/CopyAll",
+      "category": "Работа",
+      "icon": "copy",
+      "artworkUrl": "https://raw.githubusercontent.com/ThodProd/ThodHUB-Registry/main/assets/copyall.svg",
+      "kind": "Пути файлов",
+      "iconUrl": "https://raw.githubusercontent.com/ThodProd/ThodHUB-Registry/main/assets/icons/copyall.svg"
+    },
+    {
+      "id": "thodmedia",
+      "name": "ThodMedia",
+      "description": "Преобразование фото, видео и звука. Сжатие, обрезка и удаление фона без отправки файлов в сеть.",
+      "repository": "ThodProd/ThodMedia",
+      "category": "Медиа",
+      "icon": "mixer",
+      "mode": "embedded",
+      "artworkUrl": "https://raw.githubusercontent.com/ThodProd/ThodHUB-Registry/main/assets/thodmedia.svg?v=2",
+      "kind": "Конвертер",
+      "iconUrl": "https://raw.githubusercontent.com/ThodProd/ThodHUB-Registry/main/assets/icons/thodmedia.svg"
+    },
+    {
+      "id": "thodview",
+      "name": "ThodView",
+      "description": "Просмотр, масштабирование, поворот и обрезка изображений. Навигация по папкам и работа с метаданными.",
+      "repository": "ThodProd/ThodView",
+      "category": "Графика",
+      "icon": "library",
+      "mode": "standalone",
+      "artworkUrl": "https://raw.githubusercontent.com/ThodProd/ThodHUB-Registry/main/assets/thodview.svg?v=2",
+      "kind": "Просмотр изображений",
+      "iconUrl": "https://raw.githubusercontent.com/ThodProd/ThodHUB-Registry/main/assets/icons/thodview.svg"
+    },
+    {
+      "id": "thodclip",
+      "name": "ThodClip",
+      "description": "Вся история буфера и скриншотов под рукой. Поиск, календарь, закрепление и копирование обратно.",
+      "repository": "ThodProd/ThodClip",
+      "category": "Система",
+      "icon": "copy",
+      "mode": "embedded",
+      "artworkUrl": "https://raw.githubusercontent.com/ThodProd/ThodHUB-Registry/main/assets/thodclip.svg",
+      "iconUrl": "https://raw.githubusercontent.com/ThodProd/ThodHUB-Registry/main/assets/icons/thodclip.svg"
+    }
+  ]
+}

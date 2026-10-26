@@ -1,0 +1,173 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "ThodHUB manifest API 1",
+  "type": "object",
+  "required": [
+    "schemaVersion",
+    "hubApi",
+    "id",
+    "version",
+    "platform",
+    "mode"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "const": 1
+    },
+    "hubApi": {
+      "const": 1
+    },
+    "id": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9-]{1,63}$"
+    },
+    "version": {
+      "type": "string",
+      "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)$"
+    },
+    "platform": {
+      "const": "win-x64"
+    },
+    "mode": {
+      "enum": [
+        "standalone",
+        "embedded"
+      ]
+    },
+    "ui": {
+      "type": "string"
+    },
+    "launch": {
+      "type": "object",
+      "required": [
+        "executable"
+      ],
+      "properties": {
+        "executable": {
+          "type": "string",
+          "pattern": "\\.exe$"
+        },
+        "arguments": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "worker": {
+      "type": "object",
+      "required": [
+        "executable"
+      ],
+      "properties": {
+        "executable": {
+          "type": "string",
+          "pattern": "\\.exe$"
+        },
+        "arguments": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "requiresElevation": {
+      "type": "boolean"
+    },
+    "permissions": {
+      "type": "array",
+      "items": {
+        "enum": [
+          "settings",
+          "clipboard.write",
+          "dialog.folder",
+          "files.export",
+          "worker"
+        ]
+      },
+      "uniqueItems": true
+    },
+    "cleanup": {
+      "type": "object",
+      "required": [
+        "executable"
+      ],
+      "properties": {
+        "executable": {
+          "type": "string",
+          "pattern": "\\.exe$"
+        },
+        "arguments": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "actions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "label",
+          "arguments"
+        ],
+        "properties": {
+          "arguments": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "maxLength": 2048
+            },
+            "maxItems": 16
+          },
+          "label": {
+            "type": "string",
+            "maxLength": 80,
+            "minLength": 1
+          },
+          "id": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9-]{1,63}$"
+          }
+        }
+      },
+      "maxItems": 8
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "mode": {
+            "const": "standalone"
+          }
+        }
+      },
+      "then": {
+        "required": [
+          "launch"
+        ],
+        "not": {
+          "required": [
+            "worker"
+          ]
+        }
+      },
+      "else": {
+        "required": [
+          "ui"
+        ],
+        "properties": {
+          "requiresElevation": {
+            "const": false
+          }
+        }
+      }
+    }
+  ]
+}

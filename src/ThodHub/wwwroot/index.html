@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data: https://raw.githubusercontent.com; frame-src https://*.thodhub.local; connect-src 'self'; object-src 'none'; base-uri 'none'">
+  <title>ThodHUB</title>
+  <link rel="stylesheet" href="styles.css">
+  <script src="app.js" defer></script><script src="backups.js" defer></script>
+</head>
+<body>
+  <div class="shell">
+    <aside class="sidebar" aria-label="Навигация">
+      <a class="brand" href="#library" aria-label="ThodHUB — библиотека"><span class="brand-mark">t<span>h</span></span><span>Thod<span class="brand-light">HUB</span></span></a>
+      <nav id="main-nav"></nav>
+      <div class="section-label">МОИ ПРОГРАММЫ <span id="installed-count">0</span></div>
+      <div id="app-list" class="app-list" aria-label="Установленные программы"></div>
+      <div class="sidebar-bottom">
+        <button id="add-app" class="add-app"></button>
+        <button id="backup-nav" class="nav-item" data-backups>Резервные копии</button><button id="settings-nav" class="nav-item"></button>
+        <div class="sidebar-foot"><span class="status-dot"></span><span id="foot-state">На вашем компьютере</span><span>0.1</span></div>
+      </div>
+    </aside>
+    <main id="main" tabindex="-1">
+      <header class="toolbar"><div id="breadcrumb">Рабочее пространство</div><div class="toolbar-actions"><span id="sync-label">Локальная библиотека</span><button id="refresh" class="icon-button" aria-label="Обновить каталог" title="Обновить каталог"></button></div></header>
+      <div id="notice" role="status" hidden></div>
+      <section id="page"></section>
+      <section id="module-area" hidden><div id="module-toolbar"></div><iframe id="module-frame" title="Программа" sandbox="allow-scripts allow-modals"></iframe></section>
+    </main>
+  </div>
+  <dialog id="catalog-dialog" aria-labelledby="catalog-title">
+    <div class="dialog-head"><div><div class="eyebrow">ВАША КОЛЛЕКЦИЯ</div><h2 id="catalog-title">Добавить программу</h2></div><button class="icon-button close-dialog" aria-label="Закрыть"></button></div>
+    <div class="catalog-tools"><label class="search"><span id="search-icon"></span><input id="catalog-search" placeholder="Поиск программ" aria-label="Поиск программ" autocomplete="off"><kbd>Ctrl K</kbd></label><div id="filters" class="filters"></div></div>
+    <div id="catalog-results" class="catalog-results"></div>
+    <footer class="dialog-foot"><span id="catalog-summary"></span><span>Из ваших репозиториев GitHub</span></footer>
+  </dialog>
+  <dialog id="details-dialog" class="small-dialog" aria-labelledby="details-title"><div id="details-content"></div></dialog>
+  <dialog id="remove-dialog" class="small-dialog" aria-labelledby="remove-title"><div class="dialog-head"><h2 id="remove-title">Удалить программу?</h2><button class="icon-button close-dialog" aria-label="Закрыть"></button></div><div class="detail-body"><p id="remove-description"></p><label class="remove-data"><input type="checkbox" id="remove-backup" checked>Сначала сохранить резервную копию конфигов</label><p class="page-subtitle">Копия остаётся локально; при подключённом GitHub отправляется и в приватный репозиторий.</p><label class="remove-data"><input type="checkbox" id="remove-data">Также удалить настройки и данные этой программы</label><p class="page-subtitle">Без этой отметки данные сохранятся для следующей установки.</p><div class="detail-actions"><button id="confirm-remove" class="danger">Деинсталлировать</button><button class="secondary close-dialog">Отмена</button></div></div></dialog>
+  <dialog id="prompt-dialog" aria-labelledby="prompt-title"><div class="dialog-head"><div><div class="eyebrow">ДЛЯ ВАШЕГО АГЕНТА</div><h2 id="prompt-title">Новая программа для хаба</h2></div><button class="icon-button close-dialog" aria-label="Закрыть"></button></div><p class="prompt-intro">Отправьте эту инструкцию агенту. Он уточнит задачу и получит единый контракт подключения.</p><textarea id="prompt-text" readonly aria-label="Промпт для агента" spellcheck="false"></textarea><footer class="dialog-foot"><span>ThodHUB API · 1</span><button id="copy-prompt" class="primary">Скопировать промпт</button></footer></dialog>
+  <dialog id="backup-dialog" aria-labelledby="backup-title"><div class="dialog-head"><div><div class="eyebrow">КОНФИГИ И НАСТРОЙКИ</div><h2 id="backup-title">Резервные копии</h2></div><button class="icon-button close-dialog" aria-label="Закрыть">×</button></div><div id="backup-content"></div></dialog>
+  <dialog id="restore-dialog" class="small-dialog" aria-labelledby="restore-title"><div class="dialog-head"><h2 id="restore-title">Восстановить настройки?</h2><button class="icon-button close-dialog" aria-label="Закрыть">×</button></div><div class="detail-body"><p id="restore-description"></p><p>Текущие данные будут сохранены отдельной локальной копией, затем заменены выбранной версией. Закройте программу перед восстановлением.</p><div class="detail-actions"><button class="primary" id="confirm-restore">Восстановить</button><button class="secondary close-dialog">Отмена</button></div></div></dialog>
+  <div id="toast" role="status" aria-live="polite" hidden></div>
+</body>
+</html>

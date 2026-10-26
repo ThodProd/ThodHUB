@@ -1,0 +1,15 @@
+**/bin/
+**/obj/
+**/node_modules/
+projects/
+artifacts/
+.tools/
+.vs/
+*.user
+*.log
+.env
+.env.*
+!*.example
+docs/GITHUB-AUDIT.md
+docs/PROJECT-BRIEF.md
+docs/HANDOFF.md

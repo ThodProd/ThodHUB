@@ -1,0 +1,40 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "required": [
+    "version",
+    "packageUrl",
+    "sha256",
+    "size",
+    "platform",
+    "hubApi"
+  ],
+  "properties": {
+    "version": {
+      "type": "string",
+      "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)$"
+    },
+    "packageUrl": {
+      "type": "string",
+      "pattern": "^https://github.com/[^/]+/[^/]+/releases/download/"
+    },
+    "sha256": {
+      "type": "string",
+      "pattern": "^[a-fA-F0-9]{64}$"
+    },
+    "size": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 1073741824
+    },
+    "notes": {
+      "type": "string"
+    },
+    "platform": {
+      "const": "win-x64"
+    },
+    "hubApi": {
+      "const": 1
+    }
+  }
+}
