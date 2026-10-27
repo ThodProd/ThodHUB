@@ -96,3 +96,9 @@ Windows requires confirmation in system UI: do not alter protected UserChoice ha
 All permanent configuration belongs in THODHUB_DATA_DIR and is included in dated backup snapshots.
 Read BACKUPS.md for excluded transient directories; never store required config in those directories.
 Read RELEASE-CHECKLIST.md for version updates, size/hash, BOM and package path compatibility.
+
+## Windows integration (ThodHUB 0.1.2+)
+Optional `integration: {executable:"app/App.exe", arguments:["--register-integrations"]}` runs after installation/update and after rollback, without elevation. Mandatory paired `cleanup` removes only owned per-user registrations. Both must exit within 15s, exit 0 only on success, write errors to stderr, and be idempotent. The install hook registers availability (Open With/context menus), never silently overrides Windows UserChoice. Do not download dependencies or start persistent workers inside the hook. An integration failure is displayed separately from installed version and can be retried from app details.
+Actions that complete quickly can declare `waitForExit:true`; the hub waits and reports nonzero exit codes instead of claiming success on process start. Normal standalone launches remain asynchronous.
+Shortcuts for either mode use `--launch <id>`: standalone launches the installed EXE; embedded activates the existing hub via a per-user named pipe and opens the module. Never hardcode a version folder in a shortcut or shell command. Integration must resolve through THODHUB_LAUNCHER.
+Embedded resources use an origin specific to id+version, so updated HTML, CSS and JS cannot come from the previous version's cache.

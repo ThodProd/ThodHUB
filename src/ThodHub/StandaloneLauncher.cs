@@ -22,20 +22,22 @@ public static class StandaloneLauncher
         else { info.Environment["THODHUB_DATA_DIR"]=store.DataDirectory(id);info.Environment["THODHUB_LAUNCHER"]=Environment.ProcessPath; }
         Process.Start(info)?.Dispose();
     }
-    public static async Task CleanupAsync(HubStore store,string id)
+    public static Task CleanupAsync(HubStore store,string id) => RunHookAsync(store,id,store.Manifest(id).Cleanup);
+    public static Task IntegrateAsync(HubStore store,string id) => RunHookAsync(store,id,store.Manifest(id).Integration);
+    public static async Task RunHookAsync(HubStore store,string id,WorkerDefinition? hook)
     {
         var m=store.Manifest(id);
-        if(m.Cleanup is null)return;
+        if(hook is null)return;
         var root=store.AppVersion(id,m.Version);
-        var info=new ProcessStartInfo(Contract.Inside(root,m.Cleanup.Executable)) { WorkingDirectory=root,UseShellExecute=false,CreateNoWindow=true,RedirectStandardError=true,RedirectStandardOutput=true };
-        foreach(var arg in m.Cleanup.Arguments)info.ArgumentList.Add(arg.Replace("{dataDir}",store.DataDirectory(id),StringComparison.Ordinal));
+        var info=new ProcessStartInfo(Contract.Inside(root,hook.Executable)) { WorkingDirectory=root,UseShellExecute=false,CreateNoWindow=true,RedirectStandardError=true,RedirectStandardOutput=true };
+        foreach(var arg in hook.Arguments)info.ArgumentList.Add(arg.Replace("{dataDir}",store.DataDirectory(id),StringComparison.Ordinal));
         info.Environment["THODHUB_DATA_DIR"]=store.DataDirectory(id);info.Environment["THODHUB_LAUNCHER"]=Environment.ProcessPath;
-        using var process=Process.Start(info) ?? throw new IOException("Не удалось убрать интеграцию программы.");
+        using var process=Process.Start(info) ?? throw new IOException("Не удалось запустить настройку интеграции Windows.");
         var stderr=process.StandardError.ReadToEndAsync();var stdout=process.StandardOutput.ReadToEndAsync();
         try { await process.WaitForExitAsync().WaitAsync(TimeSpan.FromSeconds(15)); }
-        catch(TimeoutException) { process.Kill(true);throw new IOException("Очистка интеграции не завершилась. Программа не удалена."); }
+        catch(TimeoutException) { process.Kill(true);throw new IOException("Настройка интеграции Windows не завершилась за 15 секунд."); }
         await Task.WhenAll(stderr,stdout);
-        if(process.ExitCode!=0)throw new IOException("Не удалось убрать контекстное меню программы. "+await stderr);
+        if(process.ExitCode!=0)throw new IOException("Ошибка интеграции Windows (код "+process.ExitCode+"). "+await stderr);
     }
     public static void AssertNotRunning(HubStore store,string id)
     {
@@ -65,7 +67,6 @@ public static class StandaloneLauncher
     public static void CreateShortcut(HubStore store,string id,string name)
     {
         var manifest=store.Manifest(id);
-        if(manifest.Mode!="standalone") return;
         var type=Type.GetTypeFromProgID("WScript.Shell") ?? throw new InvalidOperationException("Windows Script Host недоступен: ярлык не создан.");
         object shell=Activator.CreateInstance(type)!;object? shortcut=null;
         try
@@ -79,7 +80,8 @@ public static class StandaloneLauncher
             link.Arguments="--launch "+id;
             link.WorkingDirectory=AppContext.BaseDirectory;
             link.Description=name+" · ThodHUB";
-            link.IconLocation=Contract.Inside(store.AppVersion(id,manifest.Version),manifest.Launch!.Executable)+",0";
+            var entry=manifest.Launch??manifest.Worker;
+            link.IconLocation=(entry is null?Environment.ProcessPath!:Contract.Inside(store.AppVersion(id,manifest.Version),entry.Executable))+",0";
             link.Save();
         }
         finally { if(shortcut is not null) Marshal.FinalReleaseComObject(shortcut);Marshal.FinalReleaseComObject(shell); }

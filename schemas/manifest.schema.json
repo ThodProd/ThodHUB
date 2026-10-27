@@ -133,10 +133,31 @@
           "id": {
             "type": "string",
             "pattern": "^[a-z][a-z0-9-]{1,63}$"
+          },
+          "waitForExit": {
+            "type": "boolean"
           }
         }
       },
       "maxItems": 8
+    },
+    "integration": {
+      "type": "object",
+      "required": [
+        "executable"
+      ],
+      "properties": {
+        "executable": {
+          "type": "string",
+          "pattern": "\\.exe$"
+        },
+        "arguments": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
     }
   },
   "allOf": [

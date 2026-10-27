@@ -1,7 +1,7 @@
 // Small native WebView2 QA driver; Node's built-in WebSocket, no browser dependency.
 import fs from 'node:fs/promises';
 const targets=await fetch('http://127.0.0.1:9225/json/list').then(r=>r.json());
-const target=targets.find(t=>t.type==='page'&&t.url.startsWith('https://thodhub.local/'));
+const target=targets.find(t=>t.type==='page'&&/^https:\/\/(thodhub|hub-v[0-9-]+\.thodhub)\.local\//.test(t.url));
 if(!target)throw new Error('ThodHUB WebView2 target not found');
 const ws=new WebSocket(target.webSocketDebuggerUrl);
 await new Promise((resolve,reject)=>{ws.addEventListener('open',resolve,{once:true});ws.addEventListener('error',reject,{once:true});});

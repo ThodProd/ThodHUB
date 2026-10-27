@@ -53,6 +53,7 @@ public sealed record ModuleManifest
     public bool RequiresElevation { get; init; }
     public WorkerDefinition? Worker { get; init; }
     public WorkerDefinition? Cleanup { get; init; }
+    public WorkerDefinition? Integration { get; init; }
     public List<ModuleAction> Actions { get; init; } = [];
     public List<string> Permissions { get; init; } = [];
 }
@@ -63,12 +64,14 @@ public sealed record WorkerDefinition
 }
 public sealed record ModuleAction
 {
+    public bool WaitForExit { get; init; }
     public required string Id { get; init; }
     public required string Label { get; init; }
     public List<string> Arguments { get; init; } = [];
 }
 public sealed record InstalledApp
 {
+    public string? IntegrationError { get; init; }
     public required string Id { get; init; }
     public required string Version { get; init; }
     public string? PreviousVersion { get; init; }
@@ -141,11 +144,12 @@ public static partial class Contract
             Inside(Path.GetTempPath(), m.Worker.Executable);
             if (!m.Worker.Executable.EndsWith(".exe", StringComparison.OrdinalIgnoreCase)) throw new InvalidDataException("Пакет должен содержать готовый Windows exe.");
         }
-        if(m.Cleanup is not null)
+        foreach(var hook in new[]{m.Cleanup,m.Integration}.OfType<WorkerDefinition>())
         {
-            Inside(Path.GetTempPath(),m.Cleanup.Executable);
-            if(!m.Cleanup.Executable.EndsWith(".exe",StringComparison.OrdinalIgnoreCase)) throw new InvalidDataException("Очистка интеграции должна выполняться exe из пакета.");
+            Inside(Path.GetTempPath(),hook.Executable);
+            if(!hook.Executable.EndsWith(".exe",StringComparison.OrdinalIgnoreCase)||hook.Arguments.Count>16||hook.Arguments.Any(a=>a.Length>2048||a.Contains('\0'))) throw new InvalidDataException("Интеграция должна выполняться exe из пакета с корректными аргументами.");
         }
+        if(m.Integration is not null && m.Cleanup is null)throw new InvalidDataException("Интеграция Windows требует cleanup для удаления.");
         if(m.Actions.Count>8 || (m.Mode!="standalone" && m.Actions.Count>0) || m.Actions.Select(a=>a.Id).Distinct().Count()!=m.Actions.Count)
             throw new InvalidDataException("Некорректные действия программы.");
         foreach(var action in m.Actions)

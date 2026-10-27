@@ -10,7 +10,8 @@ namespace ThodHub;
 
 public partial class MainWindow : Window
 {
-    private const string Origin = "https://thodhub.local";
+    private static readonly string Host = "hub-v"+typeof(MainWindow).Assembly.GetName().Version!.ToString(3).Replace('.','-')+".thodhub.local";
+    private static readonly string Origin = "https://"+Host;
     private readonly HubStore _store;
     private readonly GitHubCatalog _github;
     private readonly PackageInstaller _installer;
@@ -25,6 +26,18 @@ public partial class MainWindow : Window
     private readonly DocumentPrinter _printer = new();
     private WindowState _previousWindowState;
     private bool _fullscreen;
+    private readonly TaskCompletionSource _uiReady = new();
+    public async Task OpenRequestedAsync(string id)
+    {
+        try
+        {
+            if(WindowState==WindowState.Minimized)WindowState=WindowState.Normal;
+            Show();Activate();
+            await _uiReady.Task.WaitAsync(TimeSpan.FromSeconds(30));
+            if(id.Length>0)await Browser.CoreWebView2.ExecuteScriptAsync("openApp("+JsonSerializer.Serialize(id)+")");
+        }
+        catch(Exception ex){MessageBox.Show(this,ex.Message,"ThodHUB");}
+    }
 
     public MainWindow()
     {
@@ -56,7 +69,7 @@ public partial class MainWindow : Window
             core.Settings.AreDefaultContextMenusEnabled = false;
             core.Settings.IsStatusBarEnabled = false;
             core.Settings.IsPasswordAutosaveEnabled = false;
-            core.SetVirtualHostNameToFolderMapping("thodhub.local", Path.Combine(AppContext.BaseDirectory, "wwwroot"), CoreWebView2HostResourceAccessKind.DenyCors);
+            core.SetVirtualHostNameToFolderMapping(Host, Path.Combine(AppContext.BaseDirectory, "wwwroot"), CoreWebView2HostResourceAccessKind.DenyCors);
             core.NavigationStarting += (_, e) => { if(!e.Uri.StartsWith(Origin + "/", StringComparison.Ordinal)) e.Cancel = true; };
             core.NewWindowRequested += (_, e) => e.Handled = true;
             core.PermissionRequested += (_, e) => e.State = CoreWebView2PermissionState.Deny;
@@ -106,6 +119,7 @@ public partial class MainWindow : Window
         if(method.StartsWith("backups.",StringComparison.Ordinal))return await HandleBackupAsync(method,p);
         switch(method)
         {
+            case "hub.ready": _uiReady.TrySetResult(); return true;
             case "hub.state": return Snapshot();
             case "catalog.refresh":
                 await _refreshGate.WaitAsync();
@@ -136,7 +150,18 @@ public partial class MainWindow : Window
                 var actionId=p.GetProperty("id").GetString()!;
                 if(_downloads.ContainsKey(actionId)||_removing.Contains(actionId))throw new InvalidOperationException("Программа сейчас обновляется.");
                 var action=_store.Manifest(actionId).Actions.Single(a=>a.Id==p.GetProperty("action").GetString());
-                StandaloneLauncher.Launch(_store,actionId,action.Arguments);return true;
+                if(action.WaitForExit)
+                {
+                    var launch=_store.Manifest(actionId).Launch!;
+                    await StandaloneLauncher.RunHookAsync(_store,actionId,launch with {Arguments=[..launch.Arguments,..action.Arguments]});
+                }
+                else StandaloneLauncher.Launch(_store,actionId,action.Arguments);
+                return true;
+            case "app.integrate":
+                var integrateId=p.GetProperty("id").GetString()!;
+                if(_downloads.ContainsKey(integrateId)||_removing.Contains(integrateId))throw new InvalidOperationException("Дождитесь завершения установки.");
+                await StandaloneLauncher.IntegrateAsync(_store,integrateId);
+                await _store.ChangeAsync(s=>{var i=s.Installed.FindIndex(a=>a.Id==integrateId);s.Installed[i]=s.Installed[i] with {IntegrationError=null};});return Snapshot();
             case "app.shortcut":
                 var shortcutId=p.GetProperty("id").GetString()!;
                 StandaloneLauncher.CreateShortcut(_store,shortcutId,_catalog.Apps.Single(x=>x.Id==shortcutId).Name);return true;
@@ -172,6 +197,7 @@ public partial class MainWindow : Window
                 {
                     await StandaloneLauncher.CleanupAsync(_store,appId);
                     await _installer.RollbackAsync(appId);
+                    await StandaloneLauncher.IntegrateAsync(_store,appId);
                     StandaloneLauncher.CreateShortcut(_store,appId,_catalog.Apps.Single(x=>x.Id==appId).Name);
                 }
                 return Snapshot();
@@ -201,7 +227,16 @@ public partial class MainWindow : Window
             var progress = new Progress<double>(v => Send(new { @event = "install.progress", id, progress = v, stage = "download" }));
             path = await _github.DownloadAsync(app, progress, cts.Token);
             Send(new { @event = "install.progress", id, progress = 1, stage = "verify" });
-            await Task.Run(() => _installer.InstallAsync(path, app, cts.Token), cts.Token);
+            var manifest=await Task.Run(() => _installer.InstallAsync(path, app, cts.Token), cts.Token);
+            Send(new { @event="install.progress",id,progress=1,stage="integrate" });
+            try { await StandaloneLauncher.IntegrateAsync(_store,id); }
+            catch(Exception e)
+            {
+                await _store.ChangeAsync(s=>{var i=s.Installed.FindIndex(a=>a.Id==id);s.Installed[i]=s.Installed[i] with {IntegrationError=e.Message};});
+                throw new IOException($"Версия {manifest.Version} установлена, но интеграция Windows не завершена. Повторите её в сведениях программы. "+e.Message,e);
+            }
+            if(_store.Manifest(id).Version!=manifest.Version || new HubStore(_store.Root).Manifest(id).Version!=manifest.Version)
+                throw new IOException("Версия не активировалась. Откройте сведения и повторите установку.");
             try { StandaloneLauncher.CreateShortcut(_store,id,app.Name); }
             catch(Exception e) { Send(new { @event="notice",text="Программа установлена, но ярлык не создан: "+e.Message }); }
             return Snapshot();
@@ -220,7 +255,8 @@ public partial class MainWindow : Window
             return Task.FromResult<object>(new { mode="standalone",id,version=m.Version,requiresElevation=m.RequiresElevation,actions=m.Actions });
         }
         var root = _store.AppVersion(id, m.Version);
-        var host = "module-" + id + ".thodhub.local";
+        // A versioned origin invalidates HTML, scripts and styles together after an update.
+        var host = "module-"+Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(id+"/"+m.Version)))[..24].ToLowerInvariant()+".thodhub.local";
         Browser.CoreWebView2.SetVirtualHostNameToFolderMapping(host, root, CoreWebView2HostResourceAccessKind.DenyCors);
         _activeModule = id;
         return Task.FromResult<object>(new { mode="embedded",url = $"https://{host}/{m.Ui}", id, version = m.Version, permissions = m.Permissions });

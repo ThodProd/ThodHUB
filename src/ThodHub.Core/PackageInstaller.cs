@@ -54,6 +54,7 @@ public sealed class PackageInstaller(HubStore store)
             if ((m.Mode == "embedded" && !File.Exists(Contract.Inside(staging, m.Ui!))) ||
                 (m.Launch is not null && !File.Exists(Contract.Inside(staging,m.Launch.Executable))) ||
                 (m.Cleanup is not null && !File.Exists(Contract.Inside(staging,m.Cleanup.Executable))) ||
+                (m.Integration is not null && !File.Exists(Contract.Inside(staging,m.Integration.Executable))) ||
                 (m.Worker is not null && !File.Exists(Contract.Inside(staging, m.Worker.Executable)))) throw new InvalidDataException("В пакете отсутствует точка входа.");
             var dest = store.AppVersion(app.Id, release.Version);
             Directory.CreateDirectory(Path.GetDirectoryName(dest)!);

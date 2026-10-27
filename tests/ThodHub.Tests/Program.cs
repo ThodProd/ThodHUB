@@ -41,6 +41,30 @@ Directory.CreateDirectory(root);
 int passed = 0;
 try
 {
+    await Test("Windows integration requires cleanup and safe package paths",()=>
+    {
+        var m=new ModuleManifest{Id="integrated-app",Version="1.0.0",Mode="standalone",Launch=new(){Executable="app/App.exe"},Integration=new(){Executable="app/App.exe",Arguments=["--register-integrations"]},Cleanup=new(){Executable="app/App.exe",Arguments=["--uninstall-context"]}};
+        Contract.Manifest(m);
+        ExpectThrows(()=>Contract.Manifest(m with {Cleanup=null}));
+        ExpectThrows(()=>Contract.Manifest(m with {Integration=new(){Executable="../outside.exe"}}));
+        ExpectThrows(()=>Contract.Manifest(m with {Integration=new(){Executable="app/App.exe",Arguments=["invalid\0argument"]}}));
+        return Task.CompletedTask;
+    });
+    await Test("Missing integration entry cannot activate a package",async()=>
+    {
+        var archive=await MakePackage("1.0.0");
+        using(var zip=ZipFile.Open(archive,ZipArchiveMode.Update))
+        {
+            var entry=zip.GetEntry("manifest.json")!;ModuleManifest m;
+            using(var reader=new StreamReader(entry.Open()))m=HubJson.Read<ModuleManifest>(reader.ReadToEnd());
+            entry.Delete();using var writer=new StreamWriter(zip.CreateEntry("manifest.json").Open());
+            writer.Write(HubJson.Write(m with {Integration=new(){Executable="missing.exe"},Cleanup=new(){Executable="missing.exe"}}));
+        }
+        var state=new HubStore(Path.Combine(root,"missing-integration"));
+        var candidate=new CatalogApp{Id="test-app",Name="Test",Description="Test",Repository="ThodProd/Test",Release=await Describe(archive,"1.0.0","ThodProd/Test")};
+        await ExpectThrowsAsync(()=>new PackageInstaller(state).InstallAsync(archive,candidate));
+        Assert(state.Settings.Installed.Count==0);
+    });
     await Test("Reject path traversal, Windows alternate streams and reserved names", () =>
     {
         foreach(var bad in new[] { "../out.exe", "a/../../out.exe", "C:/out", "a:stream", "a\\b", "nul.txt", "a./x", "a /x", "/root" })
