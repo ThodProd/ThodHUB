@@ -34,8 +34,8 @@ public static class StandaloneLauncher
         info.Environment["THODHUB_DATA_DIR"]=store.DataDirectory(id);info.Environment["THODHUB_LAUNCHER"]=Environment.ProcessPath;
         using var process=Process.Start(info) ?? throw new IOException("Не удалось запустить настройку интеграции Windows.");
         var stderr=process.StandardError.ReadToEndAsync();var stdout=process.StandardOutput.ReadToEndAsync();
-        try { await process.WaitForExitAsync().WaitAsync(TimeSpan.FromSeconds(15)); }
-        catch(TimeoutException) { process.Kill(true);throw new IOException("Настройка интеграции Windows не завершилась за 15 секунд."); }
+        try { await process.WaitForExitAsync().WaitAsync(TimeSpan.FromSeconds(45)); }
+        catch(TimeoutException) { process.Kill(true);throw new IOException("Настройка интеграции Windows не завершилась за 45 секунд."); }
         await Task.WhenAll(stderr,stdout);
         if(process.ExitCode!=0)throw new IOException("Ошибка интеграции Windows (код "+process.ExitCode+"). "+await stderr);
     }
@@ -59,11 +59,17 @@ public static class StandaloneLauncher
             }
         }
     }
-    private static string ShortcutPath(string id)
+    private static string ShortcutPath(string id,string name)
     {
         Contract.Id(id);
-        return Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory),$"ThodHUB - {id}.lnk");
+        var file=string.Concat(name.Select(c=>Path.GetInvalidFileNameChars().Contains(c)?'_':c)).Trim().TrimEnd('.');
+        if(file.Length==0||file.Length>100)file=id;
+        return Contract.Inside(Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory),file+".lnk");
     }
+    private static bool OwnShortcut(dynamic link,string id) =>
+        string.Equals((string)link.Arguments,"--launch "+id,StringComparison.Ordinal) &&
+        string.Equals(Path.GetFileName((string)link.TargetPath),"ThodHUB.exe",StringComparison.OrdinalIgnoreCase) &&
+        ((string)link.Description).EndsWith(" · ThodHUB",StringComparison.Ordinal);
     public static void CreateShortcut(HubStore store,string id,string name)
     {
         var manifest=store.Manifest(id);
@@ -72,10 +78,10 @@ public static class StandaloneLauncher
         try
         {
             dynamic automation=shell;
-            var path=ShortcutPath(id);
+            var path=ShortcutPath(id,name);
             shortcut=automation.CreateShortcut(path);
             dynamic link=shortcut;
-            if(File.Exists(path) && !string.Equals((string)link.Arguments,"--launch "+id,StringComparison.Ordinal)) throw new IOException("На рабочем столе уже существует чужой ярлык с таким именем.");
+            if(File.Exists(path) && !OwnShortcut(link,id)) throw new IOException("На рабочем столе уже существует чужой ярлык «"+name+"». Переименуйте его перед созданием ярлыка из хаба.");
             link.TargetPath=Environment.ProcessPath!;
             link.Arguments="--launch "+id;
             link.WorkingDirectory=AppContext.BaseDirectory;
@@ -83,19 +89,24 @@ public static class StandaloneLauncher
             var entry=manifest.Launch??manifest.Worker;
             link.IconLocation=(entry is null?Environment.ProcessPath!:Contract.Inside(store.AppVersion(id,manifest.Version),entry.Executable))+",0";
             link.Save();
+            RemoveShortcut(id,path);
         }
         finally { if(shortcut is not null) Marshal.FinalReleaseComObject(shortcut);Marshal.FinalReleaseComObject(shell); }
     }
-    public static void RemoveShortcut(string id)
+    public static void RemoveShortcut(string id,string? except=null)
     {
-        var path=ShortcutPath(id);
-        if(!File.Exists(path)) return;
+        Contract.Id(id);
         var type=Type.GetTypeFromProgID("WScript.Shell") ?? throw new InvalidOperationException("Не удалось проверить ярлык.");
         object shell=Activator.CreateInstance(type)!;object? shortcut=null;
         try
         {
-            dynamic automation=shell;shortcut=automation.CreateShortcut(path);dynamic link=shortcut;
-            if(string.Equals((string)link.Arguments,"--launch "+id,StringComparison.Ordinal)) File.Delete(path);
+            dynamic automation=shell;
+            foreach(var path in Directory.EnumerateFiles(Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory),"*.lnk"))
+            {
+                if(string.Equals(path,except,StringComparison.OrdinalIgnoreCase))continue;
+                try { shortcut=automation.CreateShortcut(path);dynamic link=shortcut;if(OwnShortcut(link,id))File.Delete(path); }
+                finally {if(shortcut is not null){Marshal.FinalReleaseComObject(shortcut);shortcut=null;}}
+            }
         }
         finally { if(shortcut is not null) Marshal.FinalReleaseComObject(shortcut);Marshal.FinalReleaseComObject(shell); }
     }

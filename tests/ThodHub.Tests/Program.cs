@@ -192,6 +192,24 @@ try
         Assert(backups.List().Count==3&&store.LoadModuleSettings("other-app")!.Value.GetProperty("keep").GetBoolean());
         await ExpectThrowsAsync(()=>backups.RestoreAsync(first.Name,"other-app"));
     });
+    await Test("ZIP import validates app and paths before adding history; restore is explicit",async()=>
+    {
+        var source=new BackupStore(store);
+        var entry=await source.CreateAsync("backup-app","1.0.0");
+        var destination=new HubStore(Path.Combine(root,"import"));var backups=new BackupStore(destination);
+        await destination.SaveModuleSettingsAsync("backup-app",JsonSerializer.SerializeToElement(new{value="untouched"}));
+        await ExpectThrowsAsync(()=>backups.ImportAsync(source.FilePath(entry.Name),"other-app"));
+        Assert(backups.List().Count==0);
+        var imported=await backups.ImportAsync(source.FilePath(entry.Name),"backup-app");
+        Assert(imported.Name!=entry.Name&&imported.CreatedAt==entry.CreatedAt&&imported.Size==entry.Size);
+        Assert(destination.LoadModuleSettings("backup-app")!.Value.GetProperty("value").GetString()=="untouched");
+        await backups.RestoreAsync(imported.Name,"backup-app");
+        Assert(destination.LoadModuleSettings("backup-app")!.Value.GetProperty("value").GetString()=="first");
+        var count=backups.List().Count;
+        using(var zip=ZipFile.Open(source.FilePath(entry.Name),ZipArchiveMode.Update))using(var writer=new StreamWriter(zip.CreateEntry("data/../../escape.txt").Open()))await writer.WriteAsync("bad");
+        await ExpectThrowsAsync(()=>backups.ImportAsync(source.FilePath(entry.Name),"backup-app"));
+        Assert(backups.List().Count==count&&!Directory.EnumerateDirectories(destination.CacheRoot,"import-*").Any());
+    });
     await Test("Backup restore rejects traversal without changing current data",async()=>
     {
         var backups=new BackupStore(store);var entry=await backups.CreateAsync("backup-app","1.0.0");

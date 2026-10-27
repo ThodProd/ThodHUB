@@ -69,19 +69,15 @@ public sealed class BackupStore(HubStore store)
         }
         finally{if(File.Exists(tmp))File.Delete(tmp);}
     }
-    public async Task RestoreAsync(string name,string id,CancellationToken ct=default)
+    private static async Task<BackupMetadata> ExtractAsync(string source,string staging,string id,CancellationToken ct)
     {
-        Contract.Id(id);var source=FilePath(name);
-        if(new FileInfo(source).Length>MaxBytes)throw new InvalidDataException("Копия слишком большая.");
-        var staging=Path.Combine(store.CacheRoot,"restore-"+Guid.NewGuid().ToString("N"));Directory.CreateDirectory(staging);
-        try
-        {
             using(var zip=ZipFile.OpenRead(source))
             {
                 var metaEntry=zip.GetEntry("backup.json")??throw new InvalidDataException("В архиве нет описания резервной копии.");
                 if(metaEntry.Length>65536||zip.Entries.Count>20001)throw new InvalidDataException("Некорректный архив.");
                 using var reader=new StreamReader(metaEntry.Open());var meta=HubJson.Read<BackupMetadata>(await reader.ReadToEndAsync(ct));
-                if(meta.SchemaVersion!=1||meta.AppId!=id)throw new InvalidDataException("Копия относится к другой программе.");
+                if(meta.SchemaVersion!=1||meta.AppId!=id||meta.CreatedAt==default)throw new InvalidDataException("Копия относится к другой программе.");
+                if(zip.Entries.Count(e=>e.FullName=="backup.json")!=1)throw new InvalidDataException("Повторяющееся описание копии.");
                 var seen=new HashSet<string>(StringComparer.OrdinalIgnoreCase);long total=0;
                 foreach(var entry in zip.Entries)
                 {
@@ -93,7 +89,36 @@ public sealed class BackupStore(HubStore store)
                     Directory.CreateDirectory(Path.GetDirectoryName(target)!);
                     await using var input=entry.Open();await using var output=new FileStream(target,FileMode.CreateNew,FileAccess.Write);await input.CopyToAsync(output,ct);
                 }
+                return meta;
             }
+    }
+    public async Task<BackupEntry> ImportAsync(string source,string id,CancellationToken ct=default)
+    {
+        Contract.Id(id);Directory.CreateDirectory(Root);
+        if(new FileInfo(source).Length>MaxBytes)throw new InvalidDataException("Копия слишком большая.");
+        var staging=Path.Combine(store.CacheRoot,"import-"+Guid.NewGuid().ToString("N"));Directory.CreateDirectory(staging);
+        var incoming=Path.Combine(staging,"incoming.zip");
+        try
+        {
+            await using(var input=File.OpenRead(source))
+            await using(var output=new FileStream(incoming,FileMode.CreateNew,FileAccess.Write))
+            { if(input.Length>MaxBytes)throw new InvalidDataException("Копия слишком большая.");await input.CopyToAsync(output,ct); }
+            var extracted=Path.Combine(staging,"validated");Directory.CreateDirectory(extracted);
+            var meta=await ExtractAsync(incoming,extracted,id,ct);
+            var name=$"{id}--{meta.CreatedAt.UtcDateTime:yyyyMMddTHHmmssfffZ}--{Guid.NewGuid():N}.zip";
+            var dest=FilePath(name);File.Move(incoming,dest);
+            return Describe(name,new FileInfo(dest).Length,true,false)!;
+        }
+        finally {ManagedFiles.DeleteTree(store.CacheRoot,staging);}
+    }
+    public async Task RestoreAsync(string name,string id,CancellationToken ct=default)
+    {
+        Contract.Id(id);var source=FilePath(name);
+        if(new FileInfo(source).Length>MaxBytes)throw new InvalidDataException("Копия слишком большая.");
+        var staging=Path.Combine(store.CacheRoot,"restore-"+Guid.NewGuid().ToString("N"));Directory.CreateDirectory(staging);
+        try
+        {
+            await ExtractAsync(source,staging,id,ct);
             if(id=="thodhub-settings")
             {
                 var prefs=HubJson.Read<HubSettings>(await File.ReadAllTextAsync(Path.Combine(staging,"preferences.json"),ct));

@@ -2,6 +2,7 @@ using System.IO;
 using System.Text.Json;
 using System.Diagnostics;
 using ThodHub.Core;
+using Microsoft.Win32;
 
 namespace ThodHub;
 public partial class MainWindow
@@ -54,6 +55,8 @@ public partial class MainWindow
                     using(var cloud=new GitHubBackups(repository,token))await cloud.ValidatePrivateAsync();
                     BackupCredentials.Save(token);await _store.ChangeAsync(s=>s.BackupRepository=repository);return await BackupListAsync();
                 case "backups.create":
+                case "backups.exportFile":
+                case "backups.importFile":
                 case "backups.restore":
                     var id=p.GetProperty("id").GetString()!;Contract.Id(id);
                     if(_downloads.ContainsKey(id)||_activeModule==id||!_removing.Add(id))throw new IOException("Сначала закройте программу и дождитесь окончания её установки.");
@@ -61,6 +64,20 @@ public partial class MainWindow
                     {
                         if(_workers.Remove(id,out var worker))await worker.DisposeAsync();
                         if(_store.Settings.Installed.Any(a=>a.Id==id))await Task.Run(()=>StandaloneLauncher.AssertNotRunning(_store,id));
+                        if(method=="backups.exportFile")
+                        {
+                            var save=new SaveFileDialog{Title="Экспорт базы и настроек",Filter="Копия ThodHUB (*.zip)|*.zip",FileName=id+"-"+DateTime.Now.ToString("yyyy-MM-dd-HHmm")+".zip"};
+                            if(save.ShowDialog(this)!=true)return new {canceled=true};
+                            var entry=await CreateBackupAsync(id,false);
+                            await Task.Run(()=>File.Copy(BackupFiles.FilePath(entry.Name),save.FileName,true));
+                            return new {canceled=false,path=save.FileName};
+                        }
+                        if(method=="backups.importFile")
+                        {
+                            var open=new OpenFileDialog{Title="Импорт базы и настроек",Filter="Копия ThodHUB (*.zip)|*.zip",CheckFileExists=true};
+                            if(open.ShowDialog(this)!=true)return null;
+                            return await Task.Run(()=>BackupFiles.ImportAsync(open.FileName,id));
+                        }
                         if(method=="backups.create")return await CreateBackupAsync(id,true);
                         var name=p.GetProperty("name").GetString()!;var path=BackupFiles.FilePath(name);
                         if(!File.Exists(path))

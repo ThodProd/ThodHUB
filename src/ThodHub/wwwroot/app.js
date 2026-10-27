@@ -84,7 +84,7 @@ function renderSidebar(){
 }
 function card(app){
   const current=installed(app.id),ready=!!app.release,progress=downloads.get(app.id);
-  return `<article class="card" data-card="${esc(app.id)}"><div class="card-art">${artwork(app)}${updateBadge(app)}</div><div class="card-body"><div class="card-title">${appIcon(app)}<div><h3>${esc(app.name)}</h3><div class="category">${esc(app.category)}</div></div></div><p class="card-description"><strong>${esc(app.kind||app.category||'Программа')}</strong><span>${esc(app.description)}</span></p><div class="card-foot"><span class="version">${current?'v'+esc(current.version):ready?'v'+esc(app.release.version):'Нет пакета'}</span><span class="install-controls">${ready&&!current?`<span class="package-size">${formatSize(app.release.size)}</span>`:''}<button class="card-action" ${progress?'disabled':''} data-${current?'open':'details'}="${esc(app.id)}">${progress?'Установка…':current?'Открыть':ready?'Установить':'Подробнее'}</button></span></div><button class="text-button" data-cancel="${esc(app.id)}" ${progress?'':'hidden'}>Отменить загрузку</button><div class="progress-track" ${progress?'':'hidden'}><span></span></div></div></article>`;
+  return `<article class="card" data-card="${esc(app.id)}" data-product="${esc(app.id)}" tabindex="0" aria-label="${esc(app.name)} — сведения и управление"><div class="card-art">${artwork(app)}${updateBadge(app)}</div><div class="card-body"><div class="card-title">${appIcon(app)}<div><h3>${esc(app.name)}</h3><div class="category">${esc(app.category)}</div></div></div><p class="card-description" tabindex="0" aria-label="Описание программы"><strong>${esc(app.kind||app.category||'Программа')}</strong><span>${esc(app.description)}</span></p><div class="card-foot"><span class="version">${current?'v'+esc(current.version):ready?'v'+esc(app.release.version):'Нет пакета'}</span><span class="install-controls">${ready&&!current?`<span class="package-size">${formatSize(app.release.size)}</span>`:''}<button class="card-action" ${progress?'disabled':''} data-${current?'open':'details'}="${esc(app.id)}">${progress?'Установка…':current?'Открыть':ready?'Установить':'Подробнее'}</button></span></div><button class="text-button" data-cancel="${esc(app.id)}" ${progress?'':'hidden'}>Отменить загрузку</button><div class="progress-track" ${progress?'':'hidden'}><span></span></div></div></article>`;
 }
 function renderLibrary(){
   const apps=snapshot.catalog.apps, mine=apps.filter(a=>installed(a.id));
@@ -113,11 +113,12 @@ function renderCatalog(){
   $('#catalog-summary').textContent=`В каталоге: ${snapshot.catalog.apps.length}`;
   for(const id of downloads.keys())updateProgress(id);
 }
-function details(id){
+async function details(id){
   const app=snapshot.catalog.apps.find(a=>a.id===id);if(!app)return;
   const current=installed(id),update=hasUpdate(app);
-  $('#details-content').innerHTML=`<button class="icon-button detail-close close-dialog" aria-label="Закрыть">${icon('close')}</button><div class="card-art">${artwork(app)}</div><div class="detail-body"><div class="eyebrow">${esc(app.kind||app.category)}</div><h2 id="details-title">${esc(app.name)}</h2><p>${esc(app.description)}</p>${current?`<p>Установлена версия ${esc(current.version)}</p>`:''}${app.release?`<section class="release-section"><h3>${update?'Доступно обновление до':'Версия'} ${esc(app.release.version)}</h3><pre class="release-notes">${esc(app.release.notes||'Описание выпуска не добавлено.')}</pre></section>`:''}${app.releaseError?`<p class="error-text">${esc(app.releaseError)}</p>`:''}${current?.integrationError?`<p class="error-text">${esc(current.integrationError)}</p><button class="secondary" data-integrate="${id}">Повторить интеграцию Windows</button>`:""}<div class="detail-primary">${current?`<button class="secondary" data-open="${id}">Открыть</button>`:''}${app.release&&(!current||update)?`<span class="install-controls"><span class="package-size">${formatSize(app.release.size)}</span><button class="primary" data-install="${id}">${update?'Установить обновление':'Установить'}</button></span>`:''}</div>${current?`<div class="detail-management"><button class="secondary" data-shortcut="${id}">Создать ярлык</button><button class="secondary" data-backups="${id}">Резервные копии</button>${current.previousVersion?`<button class="secondary" data-rollback="${id}">Вернуть v${esc(current.previousVersion)}</button>`:''}<button class="danger" data-uninstall="${id}">Удалить программу</button></div>`:''}</div>`;
+  $('#details-content').innerHTML=`<button class="icon-button detail-close close-dialog" aria-label="Закрыть">${icon('close')}</button><div class="card-art">${artwork(app)}</div><div class="detail-body"><div class="eyebrow">${esc(app.kind||app.category)}</div><h2 id="details-title">${esc(app.name)}</h2><p>${esc(app.description)}</p>${current?`<p>Установлена версия ${esc(current.version)}</p>`:''}${app.release?`<section class="release-section"><h3>${update?'Доступно обновление до':'Версия'} ${esc(app.release.version)}</h3><pre class="release-notes">${esc(app.release.notes||'Описание выпуска не добавлено.')}</pre></section>`:''}${app.releaseError?`<p class="error-text">${esc(app.releaseError)}</p>`:''}${current?.integrationError?`<p class="error-text">${esc(current.integrationError)}</p><button class="secondary" data-integrate="${id}">Повторить интеграцию Windows</button>`:""}<div class="detail-primary">${current?`<button class="secondary" data-open="${id}">Открыть</button>`:''}${app.release&&(!current||update)?`<span class="install-controls"><span class="package-size">${formatSize(app.release.size)}</span><button class="primary" data-install="${id}">${update?'Установить обновление':'Установить'}</button></span>`:''}</div>${current?`<section class="product-tools"><h3>Управление программой</h3><div id="product-integration"></div><div class="detail-management"><button class="secondary" data-shortcut="${id}">Создать ярлык</button><button class="secondary" data-export-data="${id}">Экспорт базы и настроек</button><button class="secondary" data-import-data="${id}">Импорт базы и настроек</button><button class="secondary" data-backups="${id}">История копий</button><button class="secondary" data-app-data="${id}">Папка данных</button>${current.previousVersion?`<button class="secondary" data-rollback="${id}">Вернуть v${esc(current.previousVersion)}</button>`:''}<button class="danger" data-uninstall="${id}">Удалить программу</button></div></section>`:''}</div>`;
   $('#details-dialog').showModal();
+  if(current&&isNative){try{const info=await native('app.info',{id});const slot=$('#product-integration');if(slot&&$('#details-title').textContent===app.name){slot.innerHTML=(info.actions||[]).map(a=>`<button class="secondary" data-action="${esc(a.id)}" data-app="${esc(id)}">${esc(a.label)}</button>`).join('')+(info.integration?`<button class="secondary" data-integrate="${esc(id)}">Восстановить интеграцию Windows</button>`:'');}}catch(e){notify(e.message);}}
 }
 async function refresh(){
   if(syncing)return;syncing=true;$('#refresh').classList.add('spinning');$('#sync-label').textContent='Проверяем каталог…';
@@ -202,15 +203,17 @@ async function showPrompt(){
   try{$('#prompt-text').value=isNative?await native('hub.prompt'):await fetch('/docs/AGENT-PROMPT.md').then(r=>r.text());$('#prompt-dialog').showModal();}catch(e){notify(e.message);}
 }
 document.addEventListener('click',async e=>{
-  const b=e.target.closest('button');if(!b)return;
+  const b=e.target.closest('button');if(!b){const card=e.target.closest('[data-product]');if(card&&!window.getSelection()?.toString())await details(card.dataset.product);return;}
   try{
     if(b.classList.contains('close-dialog')){b.closest('dialog').close();return;}
     if(b.dataset.route){await navigate(b.dataset.route);return;}
     if(b.hasAttribute('data-catalog')){showCatalog();return;}
-    if(b.dataset.details){details(b.dataset.details);return;}
+    if(b.dataset.details){await details(b.dataset.details);return;}
     if(b.dataset.open){await openApp(b.dataset.open);return;}
     if(b.hasAttribute('data-hub-releases')){await native('hub.releases');return;}
     if(b.dataset.cancel){await native('app.cancel',{id:b.dataset.cancel});return;}
+    if(b.dataset.exportData){await showBackups(b.dataset.exportData,'export');return;}
+    if(b.dataset.importData){await showBackups(b.dataset.importData,'import');return;}
     if(b.hasAttribute('data-backups')){await showBackups(b.dataset.backups);return;}
     if(b.dataset.launch){await native('app.launch',{id:b.dataset.launch});notify('Программа запускается в отдельном окне.');return;}
     if(b.dataset.integrate){snapshot=await native('app.integrate',{id:b.dataset.integrate});details(b.dataset.integrate);notify('Интеграция Windows настроена.');return;}if(b.dataset.shortcut){await native('app.shortcut',{id:b.dataset.shortcut});notify('Ярлык создан на рабочем столе.');return;}
@@ -251,3 +254,6 @@ async function start(){
 void start();
 
 document.addEventListener("error",e=>{if(e.target instanceof HTMLImageElement&&e.target.dataset.fallbackIcon)e.target.outerHTML=artwork({icon:e.target.dataset.fallbackIcon});},true);
+
+document.addEventListener('keydown',e=>{if((e.key==='Enter'||e.key===' ')&&e.target.matches('[data-product]')){e.preventDefault();void details(e.target.dataset.product);}});
+document.addEventListener('wheel',e=>{const text=e.target.closest('.card-description');if(!text||text.scrollHeight<=text.clientHeight||e.ctrlKey)return;const step=e.deltaY*(e.deltaMode===1?18:e.deltaMode===2?text.clientHeight:1);text.scrollTop+=step;e.preventDefault();},{passive:false});

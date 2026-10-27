@@ -15,7 +15,7 @@ Normal processes receive `THODHUB_DATA_DIR`. Elevated apps declare `requiresElev
 accept dataDir explicitly, e.g. `["--thodhub-data","{dataDir}"]`, because UAC drops environment.
 The hub itself runs asInvoker. Working directory is the executable's directory.
 Desktop shortcuts invoke the hub with `--launch <id>`, resolving the installed version at launch.
-The app should handle repeated launches. No external installer hooks, services or driver installation.
+The app should handle repeated launches. Integration hooks may register owned Windows components; never silently install services, drivers or certificate trust.
 Do not add persistent OS integration the hub cannot uninstall.
 
 ## Embedded
@@ -76,9 +76,9 @@ Examples: [CopyAll](https://github.com/ThodProd/CopyAll/tree/main/hub) (.NET emb
 ## Context menu and cleanup (API 1)
 An optional `cleanup` has the same shape as launch: an executable inside the package and argument array.
 Example: `"cleanup":{"executable":"worker/CopyAll.Worker.exe","arguments":["--uninstall-context"]}`.
-It runs without elevation before uninstall, with a 15s timeout. A nonzero exit stops removal.
+It runs without elevation before uninstall, with a 45s timeout. A nonzero exit stops removal.
 Only remove integration keys carrying your own ownership marker. Use HKCU/Software/Classes for per-user menus.
-THODHUB_LAUNCHER points to the hub executable. Context menu commands should invoke that stable launcher:
+THODHUB_LAUNCHER points to the hub executable. Context menu commands may invoke the stable launcher:
 standalone: `"<hub>" --launch <id> --target "%1"` (extra args forwarded as an array),
 clipboard worker: `"<hub>" --invoke <id> context.copy "%1"` (worker result must contain clipboardText; permission clipboard.write required).
 Use `%V` for a directory-background menu. This resolves the installed version after updates.
@@ -91,14 +91,19 @@ Each app must have its own square `iconUrl` (HTTPS raw.githubusercontent.com), s
 Embed a multi-size ICO in the executable and use it for the window/taskbar/desktop shortcut; see APP-STYLE.md.
 Standalone manifests may declare up to 8 `actions`, e.g. `[{"id":"default-viewer","label":"Сделать просмотрщиком по умолчанию","arguments":["--default-viewer"]}]`.
 These buttons launch the installed executable with the declared extra argument array, never a shell command.
-File associations must resolve via THODHUB_LAUNCHER --launch id; register supported formats then open Windows Default Apps.
+File associations MUST invoke the installed app EXE directly: Windows identifies Open With entries by executable. A shared hub EXE incorrectly displays ThodHUB instead of the app. Refresh executable paths in integration after every update/rollback; register supported formats, then open Windows Default Apps.
 Windows requires confirmation in system UI: do not alter protected UserChoice hashes or claim silent association changes.
 All permanent configuration belongs in THODHUB_DATA_DIR and is included in dated backup snapshots.
 Read BACKUPS.md for excluded transient directories; never store required config in those directories.
 Read RELEASE-CHECKLIST.md for version updates, size/hash, BOM and package path compatibility.
 
 ## Windows integration (ThodHUB 0.1.2+)
-Optional `integration: {executable:"app/App.exe", arguments:["--register-integrations"]}` runs after installation/update and after rollback, without elevation. Mandatory paired `cleanup` removes only owned per-user registrations. Both must exit within 15s, exit 0 only on success, write errors to stderr, and be idempotent. The install hook registers availability (Open With/context menus), never silently overrides Windows UserChoice. Do not download dependencies or start persistent workers inside the hook. An integration failure is displayed separately from installed version and can be retried from app details.
+Optional `integration: {executable:"app/App.exe", arguments:["--register-integrations"]}` runs after installation/update and after rollback, without elevation. Mandatory paired `cleanup` removes only owned per-user registrations. Both must exit within 45s, exit 0 only on success, write errors to stderr, and be idempotent. The install hook registers availability (Open With/context menus), never silently overrides Windows UserChoice. Do not download dependencies or start persistent workers inside the hook. An integration failure is displayed separately from installed version and can be retried from app details.
 Actions that complete quickly can declare `waitForExit:true`; the hub waits and reports nonzero exit codes instead of claiming success on process start. Normal standalone launches remain asynchronous.
-Shortcuts for either mode use `--launch <id>`: standalone launches the installed EXE; embedded activates the existing hub via a per-user named pipe and opens the module. Never hardcode a version folder in a shortcut or shell command. Integration must resolve through THODHUB_LAUNCHER.
+Shortcuts for either mode use `--launch <id>`: standalone launches the installed EXE; embedded activates the existing hub via a per-user named pipe and opens the module. Never hardcode a version folder in a desktop shortcut. Native shell handlers may use the actual installed EXE; every integration/rollback must refresh these paths. Direct shell launches must use the same data directory as hub launches (default %LOCALAPPDATA%/ThodHUB/Data/id, or persist the supplied THODHUB_DATA_DIR).
 Embedded resources use an origin specific to id+version, so updated HTML, CSS and JS cannot come from the previous version's cache.
+
+## Windows installation and library (0.1.3+)
+The hub registers installed modules in Windows Installed Apps (HKCU Uninstall) with version and native executable icon. UninstallString invokes the hub --uninstall id and opens the normal removal/backup confirmation. Desktop shortcuts are named after the project only; the hub migrates only shortcuts it owns.
+Clicking a library card opens product details with removal, ZIP export/import, dated backup history and integration repair. Long descriptions scroll under the mouse wheel.
+Windows 11 first-menu extensions require native IExplorerCommand + package identity. Plain Directory/shell keys only extend the classic menu. CopyAll includes a signed sparse MSIX and native COM DLL; expensive work runs in its separate worker. First install may require explicit certificate trust and UAC; hooks must report that requirement, not silently claim success. Never import root certificates or disable Windows menu/security settings. A module must unregister its own package during cleanup. Publisher trust is retained for reinstalls and documented.

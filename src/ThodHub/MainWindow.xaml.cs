@@ -34,7 +34,12 @@ public partial class MainWindow : Window
             if(WindowState==WindowState.Minimized)WindowState=WindowState.Normal;
             Show();Activate();
             await _uiReady.Task.WaitAsync(TimeSpan.FromSeconds(30));
-            if(id.Length>0)await Browser.CoreWebView2.ExecuteScriptAsync("openApp("+JsonSerializer.Serialize(id)+")");
+            if(id.StartsWith("remove:",StringComparison.Ordinal))
+            {
+                var appId=id[7..];Contract.Id(appId);
+                await Browser.CoreWebView2.ExecuteScriptAsync("confirmRemoval("+JsonSerializer.Serialize(appId)+")");
+            }
+            else if(id.Length>0)await Browser.CoreWebView2.ExecuteScriptAsync("openApp("+JsonSerializer.Serialize(id)+")");
         }
         catch(Exception ex){MessageBox.Show(this,ex.Message,"ThodHUB");}
     }
@@ -119,7 +124,13 @@ public partial class MainWindow : Window
         if(method.StartsWith("backups.",StringComparison.Ordinal))return await HandleBackupAsync(method,p);
         switch(method)
         {
-            case "hub.ready": _uiReady.TrySetResult(); return true;
+            case "hub.ready":
+                foreach(var installed in _store.Settings.Installed)
+                {
+                    try {WindowsInstallation.Register(_store,installed.Id,_catalog.Apps.FirstOrDefault(a=>a.Id==installed.Id)?.Name??installed.Id);}
+                    catch(Exception ex){Send(new{@event="notice",text="Не удалось зарегистрировать приложение Windows: "+ex.Message});}
+                }
+                _uiReady.TrySetResult(); return true;
             case "hub.state": return Snapshot();
             case "catalog.refresh":
                 await _refreshGate.WaitAsync();
@@ -142,6 +153,9 @@ public partial class MainWindow : Window
             case "app.cancel":
                 if(_downloads.TryGetValue(p.GetProperty("id").GetString()!, out var cancel)) await cancel.CancelAsync(); return true;
             case "app.open": return await OpenModuleAsync(p.GetProperty("id").GetString()!);
+            case "app.info":
+                var infoManifest=_store.Manifest(p.GetProperty("id").GetString()!);
+                return new {actions=infoManifest.Actions,integration=infoManifest.Integration is not null};
             case "app.launch":
                 var launchId=p.GetProperty("id").GetString()!;
                 if(_downloads.ContainsKey(launchId)||_removing.Contains(launchId)) throw new InvalidOperationException("Программа сейчас обновляется.");
@@ -192,12 +206,14 @@ public partial class MainWindow : Window
                     var deleteData=p.TryGetProperty("deleteData",out var delete)&&delete.GetBoolean();
                     await Task.Run(()=>_installer.UninstallAsync(appId,deleteData));
                     StandaloneLauncher.RemoveShortcut(appId);
+                    WindowsInstallation.Remove(_store,appId);
                 }
                 else
                 {
                     await StandaloneLauncher.CleanupAsync(_store,appId);
                     await _installer.RollbackAsync(appId);
                     await StandaloneLauncher.IntegrateAsync(_store,appId);
+                    WindowsInstallation.Register(_store,appId,_catalog.Apps.Single(x=>x.Id==appId).Name);
                     StandaloneLauncher.CreateShortcut(_store,appId,_catalog.Apps.Single(x=>x.Id==appId).Name);
                 }
                 return Snapshot();
@@ -239,6 +255,7 @@ public partial class MainWindow : Window
                 throw new IOException("Версия не активировалась. Откройте сведения и повторите установку.");
             try { StandaloneLauncher.CreateShortcut(_store,id,app.Name); }
             catch(Exception e) { Send(new { @event="notice",text="Программа установлена, но ярлык не создан: "+e.Message }); }
+            WindowsInstallation.Register(_store,id,app.Name);
             return Snapshot();
         }
         finally { _downloads.Remove(id); if(path is not null && File.Exists(path)) File.Delete(path); }

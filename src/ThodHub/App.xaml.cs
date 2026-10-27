@@ -40,7 +40,7 @@ public partial class App : Application
             Shutdown();return;
         }
         _singleInstance = new Mutex(true, "Local\\"+InstanceName, out bool created);
-        var requested = e.Args.Length>=2 && e.Args[0] is "--launch" or "--open" ? e.Args[1] : "";
+        var requested = e.Args.Length>=2 && e.Args[0] is "--launch" or "--open" or "--uninstall" ? (e.Args[0]=="--uninstall"?"remove:":"")+e.Args[1] : "";
         if(!created)
         {
             try
@@ -68,10 +68,10 @@ public partial class App : Application
                 await pipe.WaitForConnectionAsync(_lifetime.Token);
                 using var reader=new StreamReader(pipe);
                 using var timeout=CancellationTokenSource.CreateLinkedTokenSource(_lifetime.Token);timeout.CancelAfter(5000);
-                var buffer=new char[65];var length=0;
+                var buffer=new char[72];var length=0;
                 while(length<buffer.Length){var n=await reader.ReadAsync(buffer.AsMemory(length,1),timeout.Token);if(n==0||buffer[length]=='\n')break;length++;}
                 var id=new string(buffer,0,length).TrimEnd('\r');
-                if(id.Length>0)Contract.Id(id);
+                if(id.Length>0)Contract.Id(id.StartsWith("remove:",StringComparison.Ordinal)?id[7..]:id);
                 await window.OpenRequestedAsync(id);
             }
             catch(OperationCanceledException) when(_lifetime.IsCancellationRequested){break;}
