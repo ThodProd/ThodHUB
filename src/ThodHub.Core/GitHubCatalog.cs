@@ -80,6 +80,60 @@ public sealed class GitHubCatalog : IDisposable
         }
         return System.Text.Encoding.UTF8.GetString(buffer.ToArray());
     }
+    public async Task<HubReleaseInfo?> CheckHubUpdateAsync(string currentVersion, CancellationToken ct = default)
+    {
+        const string repository = "ThodProd/ThodHUB";
+        Contract.Version(currentVersion);
+        var releases = HubJson.Read<JsonElement>(await GetTextAsync($"https://api.github.com/repos/{repository}/releases?per_page=10", 2_000_000, ct));
+        HubReleaseInfo? best = null;
+        foreach(var release in releases.EnumerateArray())
+        {
+            if(release.GetProperty("draft").GetBoolean() || release.GetProperty("prerelease").GetBoolean()) continue;
+            var tag = release.GetProperty("tag_name").GetString() ?? "";
+            var version = tag.StartsWith("hub-v", StringComparison.OrdinalIgnoreCase) ? tag[5..] : tag.StartsWith('v') ? tag[1..] : tag;
+            try { Contract.Version(version); } catch(InvalidDataException) { continue; }
+            if(!Contract.IsNewer(version, currentVersion)) continue;
+            if(best is not null && !Contract.IsNewer(version, best.Version)) continue;
+            var releaseUrl = release.GetProperty("html_url").GetString() ?? "";
+            if(!IsHubUrl(releaseUrl, repository, "releases/")) continue;
+            var assets = release.GetProperty("assets").EnumerateArray().ToList();
+            var archive = assets.FirstOrDefault(a => (a.GetProperty("name").GetString() ?? "").EndsWith("-win-x64.zip", StringComparison.OrdinalIgnoreCase));
+            string? downloadUrl = archive.ValueKind == JsonValueKind.Undefined ? null : archive.GetProperty("browser_download_url").GetString();
+            if(downloadUrl is not null && !IsHubUrl(downloadUrl, repository, "releases/download/")) downloadUrl = null;
+            long size = archive.ValueKind == JsonValueKind.Undefined ? 0 : archive.GetProperty("size").GetInt64();
+            var notes = release.TryGetProperty("body", out var body) ? body.GetString() ?? "" : "";
+            var descriptor = assets.FirstOrDefault(a => a.GetProperty("name").GetString() == "thodhub-release.json");
+            if(descriptor.ValueKind != JsonValueKind.Undefined)
+            {
+                var descriptorUrl = descriptor.GetProperty("browser_download_url").GetString();
+                if(descriptorUrl is not null && IsHubUrl(descriptorUrl, repository, "releases/download/"))
+                {
+                    try
+                    {
+                        var details = HubJson.Read<PackageRelease>(await GetTextAsync(descriptorUrl, 100_000, ct));
+                        Contract.Release(details, repository);
+                        if(details.Version != version) throw new InvalidDataException("Версия в описании выпуска не совпадает с тегом.");
+                        size = details.Size;
+                        if(!string.IsNullOrWhiteSpace(details.Notes)) notes = details.Notes;
+                        downloadUrl ??= details.PackageUrl;
+                    }
+                    catch(Exception e) when(e is HttpRequestException or JsonException or InvalidDataException or FormatException or KeyNotFoundException or TaskCanceledException) { }
+                }
+            }
+            best = new HubReleaseInfo
+            {
+                Version = version,
+                Notes = notes,
+                Size = size,
+                DownloadUrl = downloadUrl,
+                ReleaseUrl = releaseUrl,
+                PublishedAt = release.TryGetProperty("published_at", out var published) && DateTimeOffset.TryParse(published.GetString(), out var date) ? date : null
+            };
+        }
+        return best;
+    }
+    private static bool IsHubUrl(string value, string repository, string path)
+        => Uri.TryCreate(value, UriKind.Absolute, out var uri) && uri.Scheme == "https" && uri.Host == "github.com" && uri.IsDefaultPort && uri.UserInfo == "" && uri.Query == "" && uri.Fragment == "" && uri.AbsolutePath.StartsWith($"/{repository}/{path}", StringComparison.Ordinal);
     public async Task<string> DownloadAsync(CatalogApp app, IProgress<double>? progress = null, CancellationToken ct = default)
     {
         var r = app.Release ?? throw new InvalidOperationException("Нет готового выпуска.");

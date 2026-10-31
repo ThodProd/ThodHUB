@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.IO;
+using System.Net.Http;
 using System.Text.Json;
 using System.Windows;
 using Microsoft.Web.WebView2.Core;
@@ -10,7 +11,8 @@ namespace ThodHub;
 
 public partial class MainWindow : Window
 {
-    private static readonly string Host = "hub-v"+typeof(MainWindow).Assembly.GetName().Version!.ToString(3).Replace('.','-')+".thodhub.local";
+    private static string HubVersion => typeof(MainWindow).Assembly.GetName().Version!.ToString(3);
+    private static readonly string Host = "hub-v"+HubVersion.Replace('.','-')+".thodhub.local";
     private static readonly string Origin = "https://"+Host;
     private readonly HubStore _store;
     private readonly GitHubCatalog _github;
@@ -23,6 +25,8 @@ public partial class MainWindow : Window
     private string? _activeModule;
     private bool _closing;
     private readonly SemaphoreSlim _refreshGate = new(1, 1);
+    private readonly SemaphoreSlim _hubGate = new(1, 1);
+    private HubReleaseInfo? _hubUpdate;
     private readonly DocumentPrinter _printer = new();
     private WindowState _previousWindowState;
     private bool _fullscreen;
@@ -118,7 +122,7 @@ public partial class MainWindow : Window
     }
     private bool _moduleDirty;
     private bool ConfirmDiscard() => !_moduleDirty || MessageBox.Show(this,"В открытой программе есть несохранённые изменения. Сначала сохраните проект, чтобы продолжить работу позже.\n\nВсё равно закрыть программу?","Несохранённые изменения",MessageBoxButton.YesNo,MessageBoxImage.Warning,MessageBoxResult.No)==MessageBoxResult.Yes;
-    private object Snapshot() => new { catalog = _catalog, settings = _store.Settings, dataRoot = _store.DataRoot, hubVersion = typeof(MainWindow).Assembly.GetName().Version!.ToString(3), apiVersion = 1, native = true };
+    private object Snapshot() => new { catalog = _catalog, settings = _store.Settings, dataRoot = _store.DataRoot, hubVersion = HubVersion, hubUpdate = _hubUpdate, apiVersion = 1, native = true };
     private async Task<object?> HandleAsync(string method, JsonElement p)
     {
         if(method.StartsWith("backups.",StringComparison.Ordinal))return await HandleBackupAsync(method,p);
@@ -147,6 +151,24 @@ public partial class MainWindow : Window
                 await _store.ChangeAsync(s => s.SidebarOrder = order); return true;
             case "hub.openData": Process.Start(new ProcessStartInfo(_store.DataRoot) { UseShellExecute = true }); return true;
             case "hub.releases": Process.Start(new ProcessStartInfo("https://github.com/ThodProd/ThodHUB/releases/latest") { UseShellExecute = true }); return true;
+            case "hub.check":
+                await _hubGate.WaitAsync();
+                try
+                {
+                    try { _hubUpdate = await _github.CheckHubUpdateAsync(HubVersion); }
+                    catch(Exception e) when(e is HttpRequestException or TaskCanceledException or JsonException or InvalidDataException or FormatException or KeyNotFoundException)
+                    {
+                        var quiet = p.ValueKind == JsonValueKind.Object && p.TryGetProperty("quiet", out var quietValue) && quietValue.GetBoolean();
+                        if(!quiet) throw new InvalidOperationException("Не удалось проверить обновления хаба. "+e.Message, e);
+                    }
+                    return Snapshot();
+                }
+                finally { _hubGate.Release(); }
+            case "hub.openUpdate":
+                if(_hubUpdate is null) throw new InvalidOperationException("Сведения об обновлении хаба ещё не получены.");
+                var download = p.ValueKind == JsonValueKind.Object && p.TryGetProperty("download", out var downloadValue) && downloadValue.GetBoolean();
+                var target = download ? _hubUpdate.DownloadUrl ?? _hubUpdate.ReleaseUrl : _hubUpdate.ReleaseUrl;
+                Process.Start(new ProcessStartInfo(target) { UseShellExecute = true }); return true;
             case "hub.prompt": return await File.ReadAllTextAsync(Path.Combine(AppContext.BaseDirectory, "agent-prompt.md"));
             case "clipboard.copy": Clipboard.SetText(p.GetProperty("text").GetString() ?? ""); return true;
             case "app.install": return await InstallAsync(p.GetProperty("id").GetString()!);

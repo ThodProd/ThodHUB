@@ -30,6 +30,15 @@ public sealed record CatalogApp
     public PackageRelease? Release { get; set; }
     public string? ReleaseError { get; set; }
 }
+public sealed record HubReleaseInfo
+{
+    public required string Version { get; init; }
+    public string Notes { get; init; } = "";
+    public long Size { get; init; }
+    public string? DownloadUrl { get; init; }
+    public required string ReleaseUrl { get; init; }
+    public DateTimeOffset? PublishedAt { get; init; }
+}
 public sealed record PackageRelease
 {
     public required string Version { get; init; }
