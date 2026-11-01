@@ -235,6 +235,22 @@ try
         var current=state.Settings.Installed.Single();Assert(current.Version=="1.1.0"&&current.PreviousVersion=="1.0.0");
         Assert(await File.ReadAllTextAsync(Path.Combine(state.DataDirectory(app.Id),"keep.txt"))=="keep");
     });
+    await Test("Hub update archive extracts the executable and rejects traversal", () =>
+    {
+        var good=Path.Combine(root,"hub-update-good.zip");
+        using(var zip=ZipFile.Open(good,ZipArchiveMode.Create))
+        {
+            using(var writer=new StreamWriter(zip.CreateEntry("ThodHUB.exe").Open()))writer.Write("hub");
+            using(var writer=new StreamWriter(zip.CreateEntry("wwwroot/index.html").Open()))writer.Write("<!doctype html>");
+        }
+        var extracted=HubUpdater.Extract(good,Path.Combine(root,"hub-update-stage"));
+        Assert(File.Exists(Path.Combine(extracted,"ThodHUB.exe"))&&File.Exists(Path.Combine(extracted,"wwwroot","index.html")));
+        var bad=Path.Combine(root,"hub-update-bad.zip");
+        using(var zip=ZipFile.Open(bad,ZipArchiveMode.Create))using(var writer=new StreamWriter(zip.CreateEntry("../escape.txt").Open()))writer.Write("bad");
+        ExpectThrows(()=>HubUpdater.Extract(bad,Path.Combine(root,"hub-update-bad-stage")));
+        Assert(!File.Exists(Path.Combine(root,"escape.txt")));
+        return Task.CompletedTask;
+    });
     Console.WriteLine($"PASS: {passed} tests");
 }
 finally

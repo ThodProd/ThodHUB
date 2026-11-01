@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Net;
 using System.Net.Http.Headers;
+using System.Security.Cryptography;
 using System.Text.Json;
 using System.Xml.Linq;
 
@@ -15,7 +16,7 @@ public sealed class GitHubCatalog : IDisposable
     {
         _store = store;
         _http = new HttpClient { Timeout = TimeSpan.FromSeconds(30) };
-        _http.DefaultRequestHeaders.UserAgent.ParseAdd("ThodHUB/0.2.1");
+        _http.DefaultRequestHeaders.UserAgent.ParseAdd("ThodHUB/0.2.3");
         _http.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/vnd.github+json"));
     }
     public Catalog LoadCached(string bundledPath)
@@ -146,6 +147,7 @@ public sealed class GitHubCatalog : IDisposable
                 Version = release.Version,
                 Notes = descriptor.Notes,
                 Size = descriptor.Size,
+                Sha256 = descriptor.Sha256,
                 DownloadUrl = descriptor.PackageUrl,
                 ReleaseUrl = release.ReleaseUrl,
                 PublishedAt = release.PublishedAt
@@ -182,6 +184,39 @@ public sealed class GitHubCatalog : IDisposable
             return target;
         }
         catch { if(File.Exists(target)) File.Delete(target); throw; }
+    }
+    public async Task<string> DownloadHubUpdateAsync(HubReleaseInfo update, IProgress<double>? progress = null, CancellationToken ct = default)
+    {
+        if(update.DownloadUrl is null || update.Sha256.Length != 64) throw new InvalidOperationException("Нет готового пакета обновления хаба.");
+        var app = new CatalogApp
+        {
+            Id = "thodhub",
+            Name = "ThodHUB",
+            Description = "Обновление хаба",
+            Repository = "ThodProd/ThodHUB",
+            Release = new PackageRelease
+            {
+                Version = update.Version,
+                PackageUrl = update.DownloadUrl,
+                Sha256 = update.Sha256,
+                Size = update.Size,
+                Notes = update.Notes,
+                PublishedAt = update.PublishedAt
+            }
+        };
+        var path = await DownloadAsync(app, progress, ct);
+        try
+        {
+            await using var stream = File.OpenRead(path);
+            var hash = Convert.ToHexString(await SHA256.HashDataAsync(stream, ct));
+            if(!hash.Equals(update.Sha256, StringComparison.OrdinalIgnoreCase)) throw new InvalidDataException("SHA-256 обновления не совпадает.");
+            return path;
+        }
+        catch
+        {
+            if(File.Exists(path)) File.Delete(path);
+            throw;
+        }
     }
     public static void Validate(Catalog catalog)
     {

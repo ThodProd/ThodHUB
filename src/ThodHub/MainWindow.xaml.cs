@@ -164,11 +164,45 @@ public partial class MainWindow : Window
                     return Snapshot();
                 }
                 finally { _hubGate.Release(); }
+            case "hub.installUpdate":
+                if(_hubUpdate is null) throw new InvalidOperationException("Сведения об обновлении хаба ещё не получены.");
+                if(_moduleDirty) throw new InvalidOperationException("Сохраните проект перед обновлением хаба.");
+                if(_downloads.Count > 0 || _removing.Count > 0) throw new InvalidOperationException("Дождитесь завершения установки программ.");
+                var update = _hubUpdate;
+                var progress = new Progress<double>(v => Send(new { @event = "hub.progress", progress = v, stage = "download" }));
+                var archive = await _github.DownloadHubUpdateAsync(update, progress);
+                string? stage = null;
+                try
+                {
+                    Send(new { @event = "hub.progress", progress = 1.0, stage = "extract" });
+                    var stageRoot = Path.Combine(Path.GetTempPath(), "thodhub-update-" + Guid.NewGuid().ToString("N"));
+                    stage = await Task.Run(() => HubUpdater.Extract(archive, stageRoot));
+                    Send(new { @event = "hub.progress", progress = 1.0, stage = "ready" });
+                    var target = AppContext.BaseDirectory.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+                    var backup = target + ".old-" + DateTime.Now.ToString("yyyyMMdd-HHmmss");
+                    var log = Path.Combine(Path.GetTempPath(), "thodhub-update.log");
+                    var script = HubUpdater.WriteScript(Path.GetTempPath(), target, stage, backup, log);
+                    HubUpdater.Launch(script, Environment.ProcessId, target, stage, backup, log);
+                    return new { restarting = true, backup, log };
+                }
+                catch
+                {
+                    if(stage is not null && Directory.Exists(stage))
+                    {
+                        try { Directory.Delete(stage, true); } catch { }
+                    }
+                    throw;
+                }
+                finally
+                {
+                    try { if(File.Exists(archive)) File.Delete(archive); } catch { }
+                }
+            case "hub.restart":
+                _ = Dispatcher.BeginInvoke(new Action(Close));
+                return true;
             case "hub.openUpdate":
                 if(_hubUpdate is null) throw new InvalidOperationException("Сведения об обновлении хаба ещё не получены.");
-                var download = p.ValueKind == JsonValueKind.Object && p.TryGetProperty("download", out var downloadValue) && downloadValue.GetBoolean();
-                var target = download ? _hubUpdate.DownloadUrl ?? _hubUpdate.ReleaseUrl : _hubUpdate.ReleaseUrl;
-                Process.Start(new ProcessStartInfo(target) { UseShellExecute = true }); return true;
+                Process.Start(new ProcessStartInfo(_hubUpdate.ReleaseUrl) { UseShellExecute = true }); return true;
             case "hub.prompt": return await File.ReadAllTextAsync(Path.Combine(AppContext.BaseDirectory, "agent-prompt.md"));
             case "clipboard.copy": Clipboard.SetText(p.GetProperty("text").GetString() ?? ""); return true;
             case "app.install": return await InstallAsync(p.GetProperty("id").GetString()!);

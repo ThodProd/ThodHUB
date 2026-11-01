@@ -49,7 +49,7 @@ const native = (method, params={}) => {
   if(!isNative) return Promise.reject(new Error('Это предпросмотр. Системные действия доступны в приложении ThodHUB.'));
   return new Promise((resolve,reject)=>{
     const id=crypto.randomUUID();
-    const timeout=setTimeout(()=>{pending.delete(id);reject(new Error('Время ожидания истекло.'));},(method==='app.install'||method.startsWith('backups.'))?16*60*1000:90*1000);
+    const timeout=setTimeout(()=>{pending.delete(id);reject(new Error('Время ожидания истекло.'));},(method==='app.install'||method==='hub.installUpdate'||method.startsWith('backups.'))?16*60*1000:90*1000);
     pending.set(id,{resolve,reject,timeout});
     window.chrome.webview.postMessage({id,method,params});
   });
@@ -59,6 +59,13 @@ if(isNative) window.chrome.webview.addEventListener('message', e=>{
   if(m.event==='fullscreen'){fullscreen=m.enabled;document.body.classList.toggle('module-fullscreen',fullscreen);return;}
   if(m.event==='notice'){notice(m.text);return;}
   if(m.event==='install.progress'){downloads.set(m.id,{progress:m.progress,stage:m.stage});updateProgress(m.id);return;}
+  if(m.event==='hub.progress'){
+    const track=$('#hub-update-progress'),status=$('#hub-update-status');
+    if(track){track.hidden=false;track.querySelector('span').style.width=Math.round((m.progress||0)*100)+'%';}
+    if(status)status.textContent=m.stage==='extract'?'Распаковка обновления…':m.stage==='ready'?'Запуск установщика…':'Скачивание · '+Math.round((m.progress||0)*100)+'%';
+    if(!track)notice(m.stage==='extract'?'Распаковка обновления…':m.stage==='ready'?'Запуск установщика…':'Скачивание обновления · '+Math.round((m.progress||0)*100)+'%');
+    return;
+  }
   const p=pending.get(m.id);if(!p)return;
   pending.delete(m.id);clearTimeout(p.timeout);m.error?p.reject(new Error(m.error)):p.resolve(m.result);
 });
@@ -111,7 +118,7 @@ function renderUpdates(){
 }
 function renderSettings(){
   const startupMode=!snapshot.settings.checkOnStartup?'off':snapshot.settings.autoInstallUpdates?'install':'check';
-  $('#page').innerHTML=`<div class="page-title"><div><h1>Настройки</h1><p class="page-subtitle">Только то, что нужно вашему рабочему пространству.</p></div></div><section class="settings-section"><h2>Внешний вид</h2><div class="settings-rows"><div class="settings-row"><div><h3>Оформление</h3><p>Выберите тему или следуйте настройкам Windows.</p></div><div class="theme-options">${[['light','Светлая'],['dark','Тёмная'],['system','Системная']].map(([t,label])=>`<button class="theme-option ${snapshot.settings.theme===t?'selected':''}" data-theme="${t}" aria-pressed="${snapshot.settings.theme===t}"><span class="theme-preview ${t}"></span>${label}</button>`).join('')}</div></div></div></section><section class="settings-section"><h2>Каталог и обновления</h2><div class="settings-rows"><div class="settings-row"><div><h3>Проверять при запуске</h3></div><select class="settings-select" id="startup-check" aria-label="Проверять обновления при запуске"><option value="off" ${startupMode==='off'?'selected':''}>Не проверять</option><option value="check" ${startupMode==='check'?'selected':''}>Проверять без установки</option><option value="install" ${startupMode==='install'?'selected':''}>Проверять и устанавливать программы</option></select></div><div class="settings-row"><div><h3>Источник программ</h3><p>github.com/${esc(snapshot.settings.catalogRepository||'ThodProd/ThodHUB-Registry')}</p></div><button class="secondary" data-refresh>${icon('refresh')}Обновить</button></div><div class="settings-row"><div><h3>Версия хаба</h3><p>ThodHUB ${esc(snapshot.hubVersion)}${snapshot.hubUpdate?` · доступно v${esc(snapshot.hubUpdate.version)}`:' · обновлений нет'}</p></div><button class="secondary" data-hub-check>${icon('refresh')}Проверить</button></div></div></section><section class="settings-section"><h2>Данные программ</h2><button class="secondary" data-backups>Резервные копии · экспорт и восстановление</button><div class="settings-rows"><div class="settings-row"><div><h3>Хранятся отдельно от обновлений</h3><p>${esc(snapshot.dataRoot||'%LOCALAPPDATA%\\ThodHUB\\Data')}<br>У каждой программы своя папка. Облачные копии настраиваются в разделе «Резервные копии».</p></div><button class="secondary" data-open-data>${icon('folder')}Открыть папку</button></div></div></section><section class="settings-section"><h2>Для новых идей</h2><div class="settings-rows"><div class="settings-row"><div><h3>Инструкция для агента</h3><p>Стандарт подключения, входы, выходы и правила выпуска.</p></div><button class="secondary" data-prompt>${icon('code')}Показать промпт</button></div></div></section><p class="page-subtitle">ThodHUB ${esc(snapshot.hubVersion)} · Windows · API 1</p>`;
+  $('#page').innerHTML=`<div class="page-title"><div><h1>Настройки</h1><p class="page-subtitle">Только то, что нужно вашему рабочему пространству.</p></div></div><section class="settings-section"><h2>Внешний вид</h2><div class="settings-rows"><div class="settings-row"><div><h3>Оформление</h3><p>Выберите тему или следуйте настройкам Windows.</p></div><div class="theme-options">${[['light','Светлая'],['dark','Тёмная'],['system','Системная']].map(([t,label])=>`<button class="theme-option ${snapshot.settings.theme===t?'selected':''}" data-theme="${t}" aria-pressed="${snapshot.settings.theme===t}"><span class="theme-preview ${t}"></span>${label}</button>`).join('')}</div></div></div></section><section class="settings-section"><h2>Каталог и обновления</h2><div class="settings-rows"><div class="settings-row"><div><h3>Проверять при запуске</h3></div><select class="settings-select" id="startup-check" aria-label="Проверять обновления при запуске"><option value="off" ${startupMode==='off'?'selected':''}>Не проверять</option><option value="check" ${startupMode==='check'?'selected':''}>Проверять без установки</option><option value="install" ${startupMode==='install'?'selected':''}>Проверять и устанавливать</option></select></div><div class="settings-row"><div><h3>Источник программ</h3><p>github.com/${esc(snapshot.settings.catalogRepository||'ThodProd/ThodHUB-Registry')}</p></div><button class="secondary" data-refresh>${icon('refresh')}Обновить</button></div><div class="settings-row"><div><h3>Версия хаба</h3><p>ThodHUB ${esc(snapshot.hubVersion)}${snapshot.hubUpdate?` · доступно v${esc(snapshot.hubUpdate.version)}`:' · обновлений нет'}</p></div><button class="secondary" data-hub-check>${icon('refresh')}Проверить</button></div></div></section><section class="settings-section"><h2>Данные программ</h2><button class="secondary" data-backups>Резервные копии · экспорт и восстановление</button><div class="settings-rows"><div class="settings-row"><div><h3>Хранятся отдельно от обновлений</h3><p>${esc(snapshot.dataRoot||'%LOCALAPPDATA%\\ThodHUB\\Data')}<br>У каждой программы своя папка. Облачные копии настраиваются в разделе «Резервные копии».</p></div><button class="secondary" data-open-data>${icon('folder')}Открыть папку</button></div></div></section><section class="settings-section"><h2>Для новых идей</h2><div class="settings-rows"><div class="settings-row"><div><h3>Инструкция для агента</h3><p>Стандарт подключения, входы, выходы и правила выпуска.</p></div><button class="secondary" data-prompt>${icon('code')}Показать промпт</button></div></div></section><p class="page-subtitle">ThodHUB ${esc(snapshot.hubVersion)} · Windows · API 1</p>`;
 }
 function render(){applyTheme();renderSidebar();if(route==='library')renderLibrary();else if(route==='updates')renderUpdates();else if(route==='settings')renderSettings();for(const id of downloads.keys())updateProgress(id);}
 async function navigate(next){
@@ -148,8 +155,29 @@ function openHubUpdate(){
   const hub=snapshot.hubUpdate;if(!hub)return;
   const hubDate=formatDate(hub.publishedAt);
   $('#hub-update-title').textContent=`ThodHUB ${hub.version}`;
-  $('#hub-update-content').innerHTML=`<div class="update-app"><span class="hub-update-glyph">${icon('refresh')}</span><div class="update-app-name"><strong>ThodHUB</strong><span>v${esc(snapshot.hubVersion)} → v${esc(hub.version)}${hubDate?` · выпуск ${hubDate}`:''}</span></div><span class="package-size">${hub.size?formatSize(hub.size):''}</span></div><pre class="release-notes">${esc(hub.notes||'Новая версия хаба.')}</pre><p class="page-subtitle">Скачайте ZIP, закройте хаб и распакуйте новую версию поверх папки программы. Установленные программы и их данные останутся на месте.</p><div class="update-actions"><button class="text-button close-dialog">Позже</button>${hub.downloadUrl?`<button class="primary" data-hub-download>${icon('download')}Скачать ZIP</button>`:''}<button class="secondary" data-hub-release-page>Выпуск на GitHub</button></div>`;
+  $('#hub-update-content').innerHTML=`<div class="update-app"><span class="hub-update-glyph">${icon('refresh')}</span><div class="update-app-name"><strong>ThodHUB</strong><span>v${esc(snapshot.hubVersion)} → v${esc(hub.version)}${hubDate?` · выпуск ${hubDate}`:''}</span></div><span class="package-size">${hub.size?formatSize(hub.size):''}</span></div><pre class="release-notes">${esc(hub.notes||'Новая версия хаба.')}</pre><p class="page-subtitle">Скачается и установится автоматически. Хаб перезапустится, программы и данные сохранятся.</p><div class="progress-track" id="hub-update-progress" hidden><span></span></div><p class="page-subtitle" id="hub-update-status"></p><div class="update-actions"><button class="text-button close-dialog">Позже</button>${hub.downloadUrl?`<button class="primary" data-hub-install>${icon('download')}Обновить</button>`:''}<button class="secondary" data-hub-release-page>Выпуск на GitHub</button></div>`;
   $('#hub-update-dialog').showModal();
+}
+async function installHubUpdate(automatic=false){
+  const hub=snapshot.hubUpdate;if(!hub)return false;
+  const dialog=$('#hub-update-dialog'),button=dialog?.open?dialog.querySelector('[data-hub-install]'):null;
+  const track=dialog?.open?$('#hub-update-progress'):null,status=dialog?.open?$('#hub-update-status'):null;
+  if(button){button.disabled=true;button.textContent='Скачивание…';}
+  if(track){track.hidden=false;track.querySelector('span').style.width='0%';}
+  if(status)status.textContent='Скачивание обновления…';
+  try{
+    await native('hub.installUpdate');
+    if(status)status.textContent='Пакет готов. Перезапускаю хаб…';
+    notice('Обновление скачано. Хаб перезапустится и установит его.');
+    setTimeout(()=>{void native('hub.restart').catch(()=>{});},1200);
+    return true;
+  }catch(e){
+    if(button){button.disabled=false;button.innerHTML=icon('download')+'Обновить';}
+    if(status)status.textContent='';
+    notice('Не удалось подготовить обновление хаба. '+e.message);
+    if(!automatic)notify(e.message);
+    return false;
+  }
 }
 function showContext(id,x,y){
   const app=snapshot.catalog.apps.find(a=>a.id===id)||{id,name:id,icon:'library'},update=hasUpdate(app);
@@ -176,15 +204,20 @@ async function refresh(autoInstall=false){
 }
 async function installPendingUpdates(){
   const pending=snapshot.catalog.apps.filter(a=>hasUpdate(a)&&!downloads.has(a.id));
-  if(!pending.length)return;
-  notice(`Проверено обновлений: ${pending.length}. Устанавливаю…`);
-  const failed=[];
-  for(const app of pending){
-    if(!snapshot.settings.autoInstallUpdates)break;
-    await install(app.id);
-    if(installed(app.id)?.version!==app.release.version)failed.push(app.name);
+  if(pending.length){
+    notice(`Проверено обновлений: ${pending.length}. Устанавливаю…`);
+    const failed=[];
+    for(const app of pending){
+      if(!snapshot.settings.autoInstallUpdates)break;
+      await install(app.id);
+      if(installed(app.id)?.version!==app.release.version)failed.push(app.name);
+    }
+    notice(failed.length?`Не удалось обновить: ${failed.join(', ')}.`:'');
   }
-  notice(failed.length?`Не удалось обновить: ${failed.join(', ')}.`:'');
+  if(snapshot.settings.autoInstallUpdates&&snapshot.hubUpdate){
+    notice('Обновляю ThodHUB…');
+    await installHubUpdate(true);
+  }
 }
 async function install(id){
   if(downloads.has(id))return;
@@ -274,7 +307,7 @@ document.addEventListener('click',async e=>{
     if(b.dataset.open){await openApp(b.dataset.open);return;}
     if(b.hasAttribute('data-hub-update')){openHubUpdate();return;}
     if(b.hasAttribute('data-hub-check')){await checkHub(false);notify('Проверка обновлений завершена.');return;}
-    if(b.hasAttribute('data-hub-download')){await native('hub.openUpdate',{download:true});$('#hub-update-dialog').close();return;}
+    if(b.hasAttribute('data-hub-install')){await installHubUpdate(false);return;}
     if(b.hasAttribute('data-hub-release-page')){await native('hub.openUpdate',{download:false});return;}
     if(b.hasAttribute('data-hub-releases')){await native('hub.releases');return;}
     if(b.dataset.cancel){await native('app.cancel',{id:b.dataset.cancel});return;}
