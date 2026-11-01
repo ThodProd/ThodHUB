@@ -168,11 +168,23 @@ async function checkHub(silent=true){
   try{snapshot=await native('hub.check',{quiet:silent});renderHubUpdate();renderSidebar();if(route==='updates')renderUpdates();if(route==='settings')renderSettings();}
   catch(e){if(!silent)notify(e.message);}
 }
-async function refresh(){
+async function refresh(autoInstall=false){
   if(syncing)return;syncing=true;$('#refresh').classList.add('spinning');$('#sync-label').textContent='Проверяем каталог…';
-  try{snapshot=await native('catalog.refresh');await checkHub(true);notice(snapshot.catalog.apps.some(a=>a.releaseError)?'Часть выпусков проверить не удалось. Сохранённые данные доступны.':'');render();if($('#catalog-dialog').open)renderCatalog();$('#sync-label').textContent='Каталог обновлён';}
+  try{snapshot=await native('catalog.refresh');await checkHub(true);notice(snapshot.catalog.apps.some(a=>a.releaseError)?'Часть выпусков проверить не удалось. Сохранённые данные доступны.':'');render();if($('#catalog-dialog').open)renderCatalog();$('#sync-label').textContent='Каталог обновлён';if(autoInstall===true)await installPendingUpdates();}
   catch(e){console.warn('catalog.refresh',e);notice('Каталог временно недоступен. Показаны сохранённые данные, установленные программы работают.');$('#sync-label').textContent='Сохранённый каталог';}
   finally{syncing=false;$('#refresh').classList.remove('spinning');}
+}
+async function installPendingUpdates(){
+  const pending=snapshot.catalog.apps.filter(a=>hasUpdate(a)&&!downloads.has(a.id));
+  if(!pending.length)return;
+  notice(`Проверено обновлений: ${pending.length}. Устанавливаю…`);
+  const failed=[];
+  for(const app of pending){
+    if(!snapshot.settings.autoInstallUpdates)break;
+    await install(app.id);
+    if(installed(app.id)?.version!==app.release.version)failed.push(app.name);
+  }
+  notice(failed.length?`Не удалось обновить: ${failed.join(', ')}.`:'');
 }
 async function install(id){
   if(downloads.has(id))return;
@@ -242,7 +254,7 @@ $('#confirm-remove').onclick=async()=>{
 };
 async function saveSettings(){
   if(!isNative){applyTheme();render();return;}
-  snapshot=await native('settings.save',{theme:snapshot.settings.theme,checkOnStartup:snapshot.settings.checkOnStartup});render();
+  snapshot=await native('settings.save',{theme:snapshot.settings.theme,checkOnStartup:snapshot.settings.checkOnStartup,autoInstallUpdates:snapshot.settings.autoInstallUpdates});render();
 }
 async function setOrder(order){
   if(isNative)await native('sidebar.order',{order});snapshot.settings.sidebarOrder=order;renderSidebar();if(route==='settings')renderSettings();
@@ -282,13 +294,12 @@ document.addEventListener('click',async e=>{
     if(b.hasAttribute('data-open-data')){await native('hub.openData');return;}
     if(b.dataset.uninstall){confirmRemoval(b.dataset.uninstall);return;}
     if(b.dataset.rollback){const id=b.dataset.rollback;snapshot=await native('app.rollback',{id});$('#details-dialog').close();await navigate('library');notify('Предыдущая версия восстановлена.');return;}
-    if(b.dataset.move){const order=[...snapshot.settings.sidebarOrder],from=order.indexOf(b.dataset.move),to=from+Number(b.dataset.step);if(to>=0&&to<order.length){[order[from],order[to]]=[order[to],order[from]];await setOrder(order);}return;}
   }catch(error){notify(error.message);}
 });
-$('#add-app').onclick=showCatalog;$('#settings-nav').onclick=()=>navigate('settings');$('#refresh').innerHTML=icon('refresh');$('#refresh').onclick=refresh;$('#search-icon').innerHTML=icon('search');$('#hub-update').onclick=openHubUpdate;
+$('#add-app').onclick=showCatalog;$('#settings-nav').onclick=()=>navigate('settings');$('#refresh').innerHTML=icon('refresh');$('#refresh').onclick=()=>refresh();$('#search-icon').innerHTML=icon('search');$('#hub-update').onclick=openHubUpdate;
 document.querySelectorAll('.close-dialog').forEach(b=>b.innerHTML=icon('close'));
 $('#catalog-search').oninput=e=>{filter=e.target.value;renderCatalog();};
-document.addEventListener('change',async e=>{if(e.target.id==='auto-check'){snapshot.settings.checkOnStartup=e.target.checked;try{await saveSettings();}catch(error){notify(error.message);}}});
+document.addEventListener('change',async e=>{if(e.target.id==='startup-check'){const mode=e.target.value;snapshot.settings.checkOnStartup=mode!=='off';snapshot.settings.autoInstallUpdates=mode==='install';try{await saveSettings();}catch(error){notify(error.message);}}});
 $('#copy-prompt').onclick=async()=>{try{if(isNative)await native('clipboard.copy',{text:$('#prompt-text').value});else await navigator.clipboard.writeText($('#prompt-text').value);notify('Промпт скопирован.');}catch(e){notify(e.message);}};
 document.addEventListener('keydown',e=>{if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='k'){e.preventDefault();if(!$('#catalog-dialog').open)showCatalog();else $('#catalog-search').focus();}});
 document.addEventListener('keydown',e=>{if(e.key==='F11'&&activeId&&!$('#module-area').hidden){e.preventDefault();void setFullscreen(!fullscreen).catch(error=>notify(error.message));}else if(e.key==='Escape'&&fullscreen){e.preventDefault();void setFullscreen(false).catch(error=>notify(error.message));}});
@@ -308,7 +319,7 @@ async function start(){
   try{
     if(isNative)snapshot=await native('hub.state');
     else{const response=await fetch('/registry/catalog.json');if(!response.ok)throw new Error('Не удалось загрузить каталог предпросмотра.');snapshot.catalog=await response.json();$('#foot-state').textContent='Предпросмотр интерфейса';$('#foot-state').classList.add('preview-badge');}
-    render();if(isNative){await native('hub.ready');if(snapshot.settings.checkOnStartup)void refresh();}
+    render();if(isNative){await native('hub.ready');if(snapshot.settings.checkOnStartup)void refresh(snapshot.settings.autoInstallUpdates);}
   }catch(e){notice(e.message);render();}
 }
 void start();

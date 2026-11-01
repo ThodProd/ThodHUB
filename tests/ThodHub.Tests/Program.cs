@@ -219,9 +219,9 @@ try
     });
     await Test("Hub preference backup never restores installed program registrations",async()=>
     {
-        var backups=new BackupStore(store);await store.ChangeAsync(s=>s.Theme="dark");
-        var entry=await backups.CreateAsync("thodhub-settings",null);await store.ChangeAsync(s=>s.Theme="light");
-        await backups.RestoreAsync(entry.Name,"thodhub-settings");Assert(store.Settings.Theme=="dark"&&store.Settings.Installed.Count==0);
+        var backups=new BackupStore(store);await store.ChangeAsync(s=>{s.Theme="dark";s.CheckOnStartup=false;s.AutoInstallUpdates=true;});
+        var entry=await backups.CreateAsync("thodhub-settings",null);await store.ChangeAsync(s=>{s.Theme="light";s.CheckOnStartup=true;s.AutoInstallUpdates=false;});
+        await backups.RestoreAsync(entry.Name,"thodhub-settings");Assert(store.Settings.Theme=="dark"&&!store.Settings.CheckOnStartup&&store.Settings.AutoInstallUpdates&&store.Settings.Installed.Count==0);
     });
     await Test("Repair and update after rollback replace a retained version without losing data", async () =>
     {

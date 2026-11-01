@@ -15,7 +15,7 @@ public sealed class GitHubCatalog : IDisposable
     {
         _store = store;
         _http = new HttpClient { Timeout = TimeSpan.FromSeconds(30) };
-        _http.DefaultRequestHeaders.UserAgent.ParseAdd("ThodHUB/0.1.0");
+        _http.DefaultRequestHeaders.UserAgent.ParseAdd("ThodHUB/0.2.1");
         _http.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/vnd.github+json"));
     }
     public Catalog LoadCached(string bundledPath)
