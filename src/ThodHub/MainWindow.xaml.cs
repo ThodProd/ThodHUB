@@ -143,7 +143,7 @@ public partial class MainWindow : Window
             case "settings.save":
                 var theme = p.GetProperty("theme").GetString()!;
                 if(theme is not ("light" or "dark" or "system")) throw new InvalidDataException("Неизвестная тема.");
-                await _store.ChangeAsync(s => { s.Theme = theme; s.CheckOnStartup = p.GetProperty("checkOnStartup").GetBoolean(); });
+                await _store.ChangeAsync(s => { s.Theme = theme; s.CheckOnStartup = p.GetProperty("checkOnStartup").GetBoolean(); s.AutoInstallUpdates = p.TryGetProperty("autoInstallUpdates", out var autoInstall) && autoInstall.GetBoolean(); });
                 return Snapshot();
             case "sidebar.order":
                 var order = p.GetProperty("order").EnumerateArray().Select(x => x.GetString()!).ToList();
@@ -156,7 +156,7 @@ public partial class MainWindow : Window
                 try
                 {
                     try { _hubUpdate = await _github.CheckHubUpdateAsync(HubVersion); }
-                    catch(Exception e) when(e is HttpRequestException or TaskCanceledException or JsonException or InvalidDataException or FormatException or KeyNotFoundException)
+                    catch(Exception e) when(e is HttpRequestException or TaskCanceledException or JsonException or InvalidDataException or FormatException or KeyNotFoundException or System.Xml.XmlException)
                     {
                         var quiet = p.ValueKind == JsonValueKind.Object && p.TryGetProperty("quiet", out var quietValue) && quietValue.GetBoolean();
                         if(!quiet) throw new InvalidOperationException("Не удалось проверить обновления хаба. "+e.Message, e);

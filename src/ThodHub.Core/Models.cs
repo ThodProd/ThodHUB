@@ -48,6 +48,7 @@ public sealed record PackageRelease
     public string Notes { get; init; } = "";
     public string Platform { get; init; } = "win-x64";
     public int HubApi { get; init; } = 1;
+    public DateTimeOffset? PublishedAt { get; init; }
 }
 public sealed record ModuleManifest
 {
@@ -90,6 +91,7 @@ public sealed record HubSettings
 {
     public string Theme { get; set; } = "system";
     public bool CheckOnStartup { get; set; } = true;
+    public bool AutoInstallUpdates { get; set; }
     public string CatalogRepository { get; set; } = "ThodProd/ThodHUB-Registry";
     public string CatalogRef { get; set; } = "main";
     public string BackupRepository { get; set; } = "ThodProd/ThodHUB-Backups";

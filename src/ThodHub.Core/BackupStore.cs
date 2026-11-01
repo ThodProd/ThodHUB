@@ -43,7 +43,7 @@ public sealed class BackupStore(HubStore store)
                 if(id=="thodhub-settings")
                 {
                     using var writer=new StreamWriter(zip.CreateEntry("data/preferences.json").Open());
-                    await writer.WriteAsync(HubJson.Write(new {store.Settings.Theme,store.Settings.CheckOnStartup,store.Settings.SidebarOrder}));
+                    await writer.WriteAsync(HubJson.Write(new {store.Settings.Theme,store.Settings.CheckOnStartup,store.Settings.AutoInstallUpdates,store.Settings.SidebarOrder}));
                 }
                 else
                 {
@@ -124,7 +124,7 @@ public sealed class BackupStore(HubStore store)
                 var prefs=HubJson.Read<HubSettings>(await File.ReadAllTextAsync(Path.Combine(staging,"preferences.json"),ct));
                 if(prefs.Theme is not("light" or "dark" or "system"))throw new InvalidDataException("Некорректная тема в копии.");
                 await CreateAsync(id,null,ct);
-                await store.ChangeAsync(s=>{s.Theme=prefs.Theme;s.CheckOnStartup=prefs.CheckOnStartup;s.SidebarOrder=prefs.SidebarOrder.Where(id=>s.Installed.Any(a=>a.Id==id)).Concat(s.Installed.Select(a=>a.Id)).Distinct().ToList();});return;
+                await store.ChangeAsync(s=>{s.Theme=prefs.Theme;s.CheckOnStartup=prefs.CheckOnStartup;s.AutoInstallUpdates=prefs.AutoInstallUpdates;s.SidebarOrder=prefs.SidebarOrder.Where(id=>s.Installed.Any(a=>a.Id==id)).Concat(s.Installed.Select(a=>a.Id)).Distinct().ToList();});return;
             }
             // Preserve a dated snapshot of the current data before replacing it.
             await CreateAsync(id,store.Settings.Installed.FirstOrDefault(a=>a.Id==id)?.Version,ct);

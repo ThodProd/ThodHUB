@@ -31,7 +31,7 @@ try {
         packageUrl = "https://github.com/ThodProd/ThodHUB/releases/download/$releaseTag/ThodHUB-$version-win-x64.zip"
         sha256 = $hash
         size = (Get-Item -LiteralPath $zip).Length
-        notes = 'Обновления программ и самого хаба, контекстное меню программ и упорядоченное управление в карточках.'
+        notes = 'Даты установки и выпуска в карточках программ и обновлениях. Меньше лишних подписей в управлении программой. Каталог и обновления проверяются без GitHub API и не упираются в лимит запросов.'
         platform = 'win-x64'
         hubApi = 1
     }

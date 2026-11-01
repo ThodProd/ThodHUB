@@ -75,3 +75,4 @@ body[data-theme=dark] .context-menu{box-shadow:0 14px 40px #0007}
 .danger-row strong{font-size:12px}
 .danger-row p{font-size:11px;color:var(--muted);margin:4px 0 0;max-width:300px}
 @media(max-width:520px){.management-grid{grid-template-columns:1fr}}
+.card-foot>.version{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}

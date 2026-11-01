@@ -1,10 +1,14 @@
+using System.Globalization;
+using System.Net;
 using System.Net.Http.Headers;
 using System.Text.Json;
+using System.Xml.Linq;
 
 namespace ThodHub.Core;
 
 public sealed class GitHubCatalog : IDisposable
 {
+    private static readonly XNamespace AtomNs = "http://www.w3.org/2005/Atom";
     private readonly HubStore _store;
     private readonly HttpClient _http;
     public GitHubCatalog(HubStore store)
@@ -28,10 +32,8 @@ public sealed class GitHubCatalog : IDisposable
     {
         var repo = _store.Settings.CatalogRepository;
         Contract.Repository(repo);
-        var url = $"https://api.github.com/repos/{repo}/contents/catalog.json?ref={Uri.EscapeDataString(_store.Settings.CatalogRef)}";
-        var content = HubJson.Read<JsonElement>(await GetTextAsync(url, 2_000_000, ct));
-        var raw = Convert.FromBase64String(content.GetProperty("content").GetString()!.Replace("\n", ""));
-        var catalog = HubJson.Read<Catalog>(System.Text.Encoding.UTF8.GetString(raw));
+        var refName = string.Join('/', _store.Settings.CatalogRef.Split('/').Select(Uri.EscapeDataString));
+        var catalog = HubJson.Read<Catalog>(await GetTextAsync($"https://raw.githubusercontent.com/{repo}/{refName}/catalog.json", 2_000_000, ct));
         Validate(catalog);
         // Keep installed programs addressable when the registry retires an entry.
         foreach(var old in previous.Apps.Where(a => _store.Settings.Installed.Any(i => i.Id == a.Id) && !catalog.Apps.Any(a2 => a2.Id == a.Id)))
@@ -42,18 +44,17 @@ public sealed class GitHubCatalog : IDisposable
             await slots.WaitAsync(ct);
             try
             {
-                var releases = HubJson.Read<JsonElement>(await GetTextAsync($"https://api.github.com/repos/{app.Repository}/releases?per_page=10", 2_000_000, ct));
-                var release = releases.EnumerateArray().FirstOrDefault(x => !x.GetProperty("draft").GetBoolean() && !x.GetProperty("prerelease").GetBoolean() && x.GetProperty("assets").EnumerateArray().Any(a => a.GetProperty("name").GetString() == "thodhub-release.json"));
-                if(release.ValueKind == JsonValueKind.Undefined) { app.Release = null;app.ReleaseError="В последних стабильных выпусках нет файла thodhub-release.json. Автору нужно опубликовать пакет для хаба.";return; }
-                var asset = release.GetProperty("assets").EnumerateArray().First(a => a.GetProperty("name").GetString() == "thodhub-release.json");
-                var assetUrl = asset.GetProperty("browser_download_url").GetString()!;
-                var expectedPrefix = $"https://github.com/{app.Repository}/releases/download/";
-                if(!assetUrl.StartsWith(expectedPrefix, StringComparison.Ordinal)) throw new InvalidDataException("Некорректный адрес описания выпуска.");
-                var descriptor = HubJson.Read<PackageRelease>(await GetTextAsync(assetUrl, 100_000, ct));
-                Contract.Release(descriptor, app.Repository);
-                app.Release = descriptor;
+                var release = await FindLatestReleaseAsync(app.Repository, ct);
+                if(release is null)
+                {
+                    var old = previous.Apps.FirstOrDefault(x => x.Id == app.Id && x.Repository == app.Repository);
+                    app.Release = old?.Release;
+                    app.ReleaseError = null;
+                    return;
+                }
+                app.Release = release;
             }
-            catch(Exception e) when(e is HttpRequestException or JsonException or InvalidDataException or FormatException or KeyNotFoundException or TaskCanceledException)
+            catch(Exception e) when(e is HttpRequestException or JsonException or InvalidDataException or FormatException or KeyNotFoundException or TaskCanceledException or System.Xml.XmlException)
             {
                 if(ct.IsCancellationRequested) throw;
                 var old = previous.Apps.FirstOrDefault(x => x.Id == app.Id && x.Repository == app.Repository);
@@ -64,6 +65,53 @@ public sealed class GitHubCatalog : IDisposable
         }));
         await HubStore.WriteAtomicAsync(Path.Combine(_store.CacheRoot, "catalog.json"), HubJson.Write(catalog));
         return catalog;
+    }
+    private async Task<PackageRelease?> FindLatestReleaseAsync(string repository, CancellationToken ct)
+    {
+        foreach(var release in await ReadReleasesAsync(repository, ct))
+        {
+            var descriptor = await TryReadDescriptorAsync(repository, release.Tag, ct);
+            if(descriptor is null || descriptor.Version != release.Version) continue;
+            Contract.Release(descriptor, repository);
+            return descriptor with { PublishedAt = release.PublishedAt };
+        }
+        return null;
+    }
+    private async Task<List<AtomRelease>> ReadReleasesAsync(string repository, CancellationToken ct)
+    {
+        var releases = new List<AtomRelease>();
+        string xml;
+        try { xml = await GetTextAsync($"https://github.com/{repository}/releases.atom", 2_000_000, ct); }
+        catch(HttpRequestException e) when(e.StatusCode == HttpStatusCode.NotFound) { return releases; }
+        var atom = XDocument.Parse(xml);
+        if(atom.Root is null) return releases;
+        foreach(var entry in atom.Root.Elements(AtomNs + "entry"))
+        {
+            var link = entry.Elements(AtomNs + "link").FirstOrDefault(e => (string?)e.Attribute("rel") == "alternate")?.Attribute("href")?.Value;
+            if(link is null || !IsRepoUrl(link, repository, "releases/tag/")) continue;
+            const string marker = "/releases/tag/";
+            var index = link.IndexOf(marker, StringComparison.Ordinal);
+            if(index < 0) continue;
+            var tag = Uri.UnescapeDataString(link[(index + marker.Length)..]);
+            var version = VersionFromTag(tag);
+            if(version is null) continue;
+            var dateText = entry.Element(AtomNs + "published")?.Value ?? entry.Element(AtomNs + "updated")?.Value;
+            var publishedAt = DateTimeOffset.TryParse(dateText, CultureInfo.InvariantCulture, DateTimeStyles.AssumeUniversal | DateTimeStyles.AdjustToUniversal, out var date) ? date : (DateTimeOffset?)null;
+            releases.Add(new AtomRelease(tag, version, link, publishedAt));
+        }
+        return releases;
+    }
+    private async Task<PackageRelease?> TryReadDescriptorAsync(string repository, string tag, CancellationToken ct)
+    {
+        var url = $"https://github.com/{repository}/releases/download/{Uri.EscapeDataString(tag)}/thodhub-release.json";
+        try { return HubJson.Read<PackageRelease>(await GetTextAsync(url, 100_000, ct)); }
+        catch(HttpRequestException e) when(e.StatusCode == HttpStatusCode.NotFound) { return null; }
+    }
+    private static string? VersionFromTag(string tag)
+    {
+        var version = tag.StartsWith("hub-v", StringComparison.OrdinalIgnoreCase) ? tag[5..] : tag.StartsWith('v') ? tag[1..] : tag;
+        try { Contract.Version(version); return version; }
+        catch(InvalidDataException) { return null; }
     }
     private async Task<string> GetTextAsync(string url, int limit, CancellationToken ct)
     {
@@ -84,56 +132,30 @@ public sealed class GitHubCatalog : IDisposable
     {
         const string repository = "ThodProd/ThodHUB";
         Contract.Version(currentVersion);
-        var releases = HubJson.Read<JsonElement>(await GetTextAsync($"https://api.github.com/repos/{repository}/releases?per_page=10", 2_000_000, ct));
         HubReleaseInfo? best = null;
-        foreach(var release in releases.EnumerateArray())
+        foreach(var release in await ReadReleasesAsync(repository, ct))
         {
-            if(release.GetProperty("draft").GetBoolean() || release.GetProperty("prerelease").GetBoolean()) continue;
-            var tag = release.GetProperty("tag_name").GetString() ?? "";
-            var version = tag.StartsWith("hub-v", StringComparison.OrdinalIgnoreCase) ? tag[5..] : tag.StartsWith('v') ? tag[1..] : tag;
-            try { Contract.Version(version); } catch(InvalidDataException) { continue; }
-            if(!Contract.IsNewer(version, currentVersion)) continue;
-            if(best is not null && !Contract.IsNewer(version, best.Version)) continue;
-            var releaseUrl = release.GetProperty("html_url").GetString() ?? "";
-            if(!IsHubUrl(releaseUrl, repository, "releases/")) continue;
-            var assets = release.GetProperty("assets").EnumerateArray().ToList();
-            var archive = assets.FirstOrDefault(a => (a.GetProperty("name").GetString() ?? "").EndsWith("-win-x64.zip", StringComparison.OrdinalIgnoreCase));
-            string? downloadUrl = archive.ValueKind == JsonValueKind.Undefined ? null : archive.GetProperty("browser_download_url").GetString();
-            if(downloadUrl is not null && !IsHubUrl(downloadUrl, repository, "releases/download/")) downloadUrl = null;
-            long size = archive.ValueKind == JsonValueKind.Undefined ? 0 : archive.GetProperty("size").GetInt64();
-            var notes = release.TryGetProperty("body", out var body) ? body.GetString() ?? "" : "";
-            var descriptor = assets.FirstOrDefault(a => a.GetProperty("name").GetString() == "thodhub-release.json");
-            if(descriptor.ValueKind != JsonValueKind.Undefined)
-            {
-                var descriptorUrl = descriptor.GetProperty("browser_download_url").GetString();
-                if(descriptorUrl is not null && IsHubUrl(descriptorUrl, repository, "releases/download/"))
-                {
-                    try
-                    {
-                        var details = HubJson.Read<PackageRelease>(await GetTextAsync(descriptorUrl, 100_000, ct));
-                        Contract.Release(details, repository);
-                        if(details.Version != version) throw new InvalidDataException("Версия в описании выпуска не совпадает с тегом.");
-                        size = details.Size;
-                        if(!string.IsNullOrWhiteSpace(details.Notes)) notes = details.Notes;
-                        downloadUrl ??= details.PackageUrl;
-                    }
-                    catch(Exception e) when(e is HttpRequestException or JsonException or InvalidDataException or FormatException or KeyNotFoundException or TaskCanceledException) { }
-                }
-            }
+            if(!Contract.IsNewer(release.Version, currentVersion)) continue;
+            if(best is not null && !Contract.IsNewer(release.Version, best.Version)) continue;
+            var descriptor = await TryReadDescriptorAsync(repository, release.Tag, ct);
+            if(descriptor is null || descriptor.Version != release.Version) continue;
+            Contract.Release(descriptor, repository);
+            if(!IsRepoUrl(descriptor.PackageUrl, repository, "releases/download/")) continue;
             best = new HubReleaseInfo
             {
-                Version = version,
-                Notes = notes,
-                Size = size,
-                DownloadUrl = downloadUrl,
-                ReleaseUrl = releaseUrl,
-                PublishedAt = release.TryGetProperty("published_at", out var published) && DateTimeOffset.TryParse(published.GetString(), out var date) ? date : null
+                Version = release.Version,
+                Notes = descriptor.Notes,
+                Size = descriptor.Size,
+                DownloadUrl = descriptor.PackageUrl,
+                ReleaseUrl = release.ReleaseUrl,
+                PublishedAt = release.PublishedAt
             };
         }
         return best;
     }
-    private static bool IsHubUrl(string value, string repository, string path)
+    private static bool IsRepoUrl(string value, string repository, string path)
         => Uri.TryCreate(value, UriKind.Absolute, out var uri) && uri.Scheme == "https" && uri.Host == "github.com" && uri.IsDefaultPort && uri.UserInfo == "" && uri.Query == "" && uri.Fragment == "" && uri.AbsolutePath.StartsWith($"/{repository}/{path}", StringComparison.Ordinal);
+    private sealed record AtomRelease(string Tag, string Version, string ReleaseUrl, DateTimeOffset? PublishedAt);
     public async Task<string> DownloadAsync(CatalogApp app, IProgress<double>? progress = null, CancellationToken ct = default)
     {
         var r = app.Release ?? throw new InvalidOperationException("Нет готового выпуска.");
