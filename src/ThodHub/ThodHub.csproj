@@ -3,12 +3,15 @@
     <OutputType>WinExe</OutputType>
     <TargetFramework>net10.0-windows</TargetFramework>
     <UseWPF>true</UseWPF>
+    <UseWindowsForms>true</UseWindowsForms>
     <AssemblyName>ThodHUB</AssemblyName>
-    <Version>0.2.3</Version>
+    <Version>0.2.4</Version>
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <ApplicationIcon>assets/thodhub.ico</ApplicationIcon>
   </PropertyGroup>
   <ItemGroup>
+    <Using Remove="System.Windows.Forms" />
+    <Using Remove="System.Drawing" />
     <ProjectReference Include="../ThodHub.Core/ThodHub.Core.csproj" />
     <PackageReference Include="Microsoft.Web.WebView2" Version="1.0.4314.35" />
     <Content Include="wwwroot/**/*" CopyToOutputDirectory="PreserveNewest" />

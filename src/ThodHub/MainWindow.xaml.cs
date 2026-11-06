@@ -24,6 +24,24 @@ public partial class MainWindow : Window
     private Catalog _catalog;
     private string? _activeModule;
     private bool _closing;
+    private bool _exitRequested;
+    private readonly System.Windows.Forms.NotifyIcon _tray = new();
+    private WindowState _restoreState = WindowState.Normal;
+    private void RestoreFromTray()
+    {
+        if (_closing) return;
+        Show();
+        WindowState = _restoreState;
+        Activate();
+    }
+    private void ExitFromTray()
+    {
+        if (_closing) return;
+        RestoreFromTray();
+        _exitRequested = true;
+        Close();
+        if (!_closing) _exitRequested = false;
+    }
     private readonly SemaphoreSlim _refreshGate = new(1, 1);
     private readonly SemaphoreSlim _hubGate = new(1, 1);
     private HubReleaseInfo? _hubUpdate;
@@ -35,8 +53,7 @@ public partial class MainWindow : Window
     {
         try
         {
-            if(WindowState==WindowState.Minimized)WindowState=WindowState.Normal;
-            Show();Activate();
+            RestoreFromTray();
             await _uiReady.Task.WaitAsync(TimeSpan.FromSeconds(30));
             if(id.StartsWith("remove:",StringComparison.Ordinal))
             {
@@ -51,6 +68,26 @@ public partial class MainWindow : Window
     public MainWindow()
     {
         InitializeComponent();
+        _tray.Icon = System.Drawing.Icon.ExtractAssociatedIcon(Environment.ProcessPath!);
+        _tray.Text = "ThodHUB";
+        var trayMenu = new System.Windows.Forms.ContextMenuStrip();
+        trayMenu.Items.Add("Открыть", null, (_, _) => RestoreFromTray());
+        trayMenu.Items.Add("Закрыть", null, (_, _) => ExitFromTray());
+        _tray.ContextMenuStrip = trayMenu;
+        _tray.DoubleClick += (_, _) => RestoreFromTray();
+        _tray.Visible = true;
+        StateChanged += (_, _) =>
+        {
+            if (WindowState == WindowState.Minimized) Hide();
+            else _restoreState = WindowState;
+        };
+        Closed += (_, _) =>
+        {
+            _tray.Visible = false;
+            _tray.Icon?.Dispose();
+            _tray.Dispose();
+            trayMenu.Dispose();
+        };
         var root = StandaloneLauncher.DefaultHome;
         _store = new HubStore(root);
         _github = new GitHubCatalog(_store);
@@ -60,6 +97,7 @@ public partial class MainWindow : Window
         Closing += async (_, e) =>
         {
             if(_closing) return;
+            if (!_exitRequested) { e.Cancel = true; Hide(); return; }
             if(!ConfirmDiscard()){e.Cancel=true;return;}
             e.Cancel = true; _closing = true;
             foreach(var c in _downloads.Values) await c.CancelAsync();
@@ -198,7 +236,7 @@ public partial class MainWindow : Window
                     try { if(File.Exists(archive)) File.Delete(archive); } catch { }
                 }
             case "hub.restart":
-                _ = Dispatcher.BeginInvoke(new Action(Close));
+                _ = Dispatcher.BeginInvoke(new Action(ExitFromTray));
                 return true;
             case "hub.openUpdate":
                 if(_hubUpdate is null) throw new InvalidOperationException("Сведения об обновлении хаба ещё не получены.");
