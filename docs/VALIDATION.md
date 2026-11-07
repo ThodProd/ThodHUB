@@ -1,7 +1,7 @@
 # Проверка текущей сборки
 
-`dotnet run --project tests/ThodHub.Tests`: 20 проверок установки, SHA-256, путей ZIP, BOM, отката,
-повторной установки, удаления, блокировки файлов, сохранения данных и резервных копий.
+`dotnet run --project tests/ThodHub.Tests`: 25 проверок установки, SHA-256, путей ZIP, BOM, отката,
+повторной установки, удаления, блокировки файлов, сохранения данных, резервных копий и остановки фонового процесса перед обслуживанием.
 `dotnet build src/ThodHub -c Release`: сборка Windows, без предупреждений.
 `node --check src/ThodHub/wwwroot/app.js`: синтаксис интерфейса.
 
@@ -9,6 +9,11 @@
 Интерфейс проверяется в родном WebView2. Размер скачивания — отдельный текст рядом с версией.
 Не проверялись реальные VPN-подключения без профиля, все датчики оборудования и все внешние MIDI-устройства.
 Windows требует подтверждать ассоциации файлов в системном интерфейсе.
+
+## ThodHUB 0.2.5 (07.11.2026)
+25 core tests passed, including a real leftover module process without a stop hook being stopped before maintenance.
+Green update controls were measured in a browser layout: the glyph is centered to 0 px in the sidebar, hub banner, update rows, cards, standalone hero and dialogs.
+The real update of Ambilight with a running background worker and the in-app WebView2 shell were not repeated in this session.
 
 ## ThodHUB 0.1.2 (27.10.2026)
 22 core tests passed. In a separate local app home: GitHub update CopyAll 1.1.0 -> 1.1.1 changed the running worker and versioned UI origin, preserved settings and registered both context menu commands. Actual --invoke copied recursive paths; clipboard restored afterward. Uninstall removed its owned registry keys and retained config. Embedded --launch activated the existing hub. Viewer 1.0.5 registration/default-settings CLI exits 0; supported OpenWithProgids entries verified. Canvas WebView regression: visible text outside prior selection, layers first, contextual panels, Ctrl+Z and Ctrl+Shift+Z with Russian key values. No screenshots or broad image/hardware tests.

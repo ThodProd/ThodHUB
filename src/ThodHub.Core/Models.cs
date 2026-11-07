@@ -64,6 +64,7 @@ public sealed record ModuleManifest
     public bool RequiresElevation { get; init; }
     public WorkerDefinition? Worker { get; init; }
     public WorkerDefinition? Cleanup { get; init; }
+    public WorkerDefinition? Stop { get; init; }
     public WorkerDefinition? Integration { get; init; }
     public List<ModuleAction> Actions { get; init; } = [];
     public List<string> Permissions { get; init; } = [];
@@ -156,7 +157,7 @@ public static partial class Contract
             Inside(Path.GetTempPath(), m.Worker.Executable);
             if (!m.Worker.Executable.EndsWith(".exe", StringComparison.OrdinalIgnoreCase)) throw new InvalidDataException("Пакет должен содержать готовый Windows exe.");
         }
-        foreach(var hook in new[]{m.Cleanup,m.Integration}.OfType<WorkerDefinition>())
+        foreach(var hook in new[]{m.Cleanup,m.Integration,m.Stop}.OfType<WorkerDefinition>())
         {
             Inside(Path.GetTempPath(),hook.Executable);
             if(!hook.Executable.EndsWith(".exe",StringComparison.OrdinalIgnoreCase)||hook.Arguments.Count>16||hook.Arguments.Any(a=>a.Length>2048||a.Contains('\0'))) throw new InvalidDataException("Интеграция должна выполняться exe из пакета с корректными аргументами.");

@@ -63,7 +63,10 @@ public partial class MainWindow
                     try
                     {
                         if(_workers.Remove(id,out var worker))await worker.DisposeAsync();
-                        if(_store.Settings.Installed.Any(a=>a.Id==id))await Task.Run(()=>StandaloneLauncher.AssertNotRunning(_store,id));
+                        if(_store.Settings.Installed.Any(a=>a.Id==id))
+                        {
+                            await StandaloneLauncher.StopForMaintenanceAsync(_store,id);
+                        }
                         if(method=="backups.exportFile")
                         {
                             var save=new SaveFileDialog{Title="Экспорт базы и настроек",Filter="Копия ThodHUB (*.zip)|*.zip",FileName=id+"-"+DateTime.Now.ToString("yyyy-MM-dd-HHmm")+".zip"};

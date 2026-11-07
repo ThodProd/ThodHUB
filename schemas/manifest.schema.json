@@ -89,6 +89,7 @@
       },
       "uniqueItems": true
     },
+    "stop": { "$ref": "#/properties/cleanup" },
     "cleanup": {
       "type": "object",
       "required": [

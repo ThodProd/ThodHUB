@@ -31,7 +31,7 @@ try {
         packageUrl = "https://github.com/ThodProd/ThodHUB/releases/download/$releaseTag/ThodHUB-$version-win-x64.zip"
         sha256 = $hash
         size = (Get-Item -LiteralPath $zip).Length
-        notes = 'Сворачивание и крестик скрывают хаб в трей. Двойной щелчок открывает окно; правая кнопка мыши показывает меню «Открыть» и «Закрыть».'
+        notes = 'Зелёные кнопки обновления выровнены во всех окнах. Перед обновлением и обслуживанием хаб останавливает фоновые процессы программы, включая старые версии без stop-хука.'
         platform = 'win-x64'
         hubApi = 1
     }

@@ -291,7 +291,7 @@ public partial class MainWindow : Window
                 try
                 {
                 if(_workers.Remove(appId, out var worker)) await worker.DisposeAsync();
-                await Task.Run(()=>StandaloneLauncher.AssertNotRunning(_store,appId));
+                await StandaloneLauncher.StopForMaintenanceAsync(_store,appId);
                 if(_activeModule == appId) { _activeModule = null;_moduleDirty=false; }
                 if(method == "app.uninstall")
                 {
@@ -333,7 +333,10 @@ public partial class MainWindow : Window
         try
         {
             if(_workers.Remove(id, out var worker)) await worker.DisposeAsync();
-            if(_store.Settings.Installed.Any(x=>x.Id==id)) await Task.Run(()=>StandaloneLauncher.AssertNotRunning(_store,id));
+            if(_store.Settings.Installed.Any(x=>x.Id==id))
+            {
+                await StandaloneLauncher.StopForMaintenanceAsync(_store,id);
+            }
             var progress = new Progress<double>(v => Send(new { @event = "install.progress", id, progress = v, stage = "download" }));
             path = await _github.DownloadAsync(app, progress, cts.Token);
             Send(new { @event = "install.progress", id, progress = 1, stage = "verify" });

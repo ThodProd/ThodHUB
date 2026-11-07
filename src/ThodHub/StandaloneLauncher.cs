@@ -23,7 +23,15 @@ public static class StandaloneLauncher
         Process.Start(info)?.Dispose();
     }
     public static Task CleanupAsync(HubStore store,string id) => RunHookAsync(store,id,store.Manifest(id).Cleanup);
+    public static Task StopAsync(HubStore store,string id) => RunHookAsync(store,id,store.Manifest(id).Stop);
     public static Task IntegrateAsync(HubStore store,string id) => RunHookAsync(store,id,store.Manifest(id).Integration);
+
+    /// <summary>Runs the optional stop hook, then makes sure older versions without one no longer block maintenance.</summary>
+    public static Task StopForMaintenanceAsync(HubStore store,string id,bool terminateIfNeeded=true) =>
+        ModuleProcessGuard.StopAsync(store,id,()=>StopAsync(store,id),
+            store.Manifest(id).Stop is null?TimeSpan.FromSeconds(2):TimeSpan.FromSeconds(6),
+            terminateIfNeeded);
+    public static void AssertNotRunning(HubStore store,string id) => ModuleProcessGuard.AssertNotRunning(store,id);
     public static async Task RunHookAsync(HubStore store,string id,WorkerDefinition? hook)
     {
         var m=store.Manifest(id);
@@ -38,26 +46,6 @@ public static class StandaloneLauncher
         catch(TimeoutException) { process.Kill(true);throw new IOException("Настройка интеграции Windows не завершилась за 45 секунд."); }
         await Task.WhenAll(stderr,stdout);
         if(process.ExitCode!=0)throw new IOException("Ошибка интеграции Windows (код "+process.ExitCode+"). "+await stderr);
-    }
-    public static void AssertNotRunning(HubStore store,string id)
-    {
-        var root=ManagedFiles.Check(store.AppsRoot,Path.Combine(store.AppsRoot,id))+Path.DirectorySeparatorChar;
-        var manifest=store.Manifest(id);
-        var expectedName=manifest.Launch is null?null:Path.GetFileNameWithoutExtension(manifest.Launch.Executable);
-        foreach(var process in Process.GetProcesses())
-        {
-            using(process)
-            {
-                string? path=null;
-                try { path=process.MainModule?.FileName; }
-                catch(Exception e) when(e is System.ComponentModel.Win32Exception or InvalidOperationException or NotSupportedException)
-                {
-                    try { if(expectedName is not null && process.ProcessName.Equals(expectedName,StringComparison.OrdinalIgnoreCase)) throw new IOException("Сначала закройте программу, в том числе её значок в трее."); }
-                    catch(InvalidOperationException) { }
-                }
-                if(path is not null && Path.GetFullPath(path).StartsWith(root,StringComparison.OrdinalIgnoreCase)) throw new IOException("Сначала закройте программу, в том числе её значок в трее.");
-            }
-        }
     }
     private static string ShortcutPath(string id,string name)
     {

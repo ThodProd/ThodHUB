@@ -19,7 +19,7 @@ body[data-theme=dark]{--update:#6fd39b;--update-soft:#1b3528;--update-line:#2d5b
 .hub-update-text{display:flex;flex-direction:column;gap:2px;min-width:0}
 .hub-update-text strong{font-size:12px;line-height:1.2}
 .hub-update-text small{font-size:10px;color:var(--update);font-weight:600;white-space:nowrap}
-.sidebar-update{position:absolute;right:5px;top:7px;color:var(--update);background:var(--update-soft);border:1px solid var(--update-line);border-radius:50%;width:23px;height:23px;display:grid;place-items:center;padding:0;z-index:1}
+.sidebar-update{position:absolute;right:5px;top:50%;transform:translateY(-50%);color:var(--update);background:var(--update-soft);border:1px solid var(--update-line);border-radius:50%;width:23px;height:23px;display:grid;place-items:center;padding:0;z-index:1}
 .sidebar-update:hover:not(:disabled){background:var(--update-line)}
 .sidebar-update svg{width:14px;height:14px}
 .update-arrow{color:var(--update);background:var(--update-soft);border:1px solid var(--update-line);border-radius:50%;width:28px;height:28px;display:inline-grid;place-items:center;padding:0;flex-shrink:0}
@@ -76,3 +76,11 @@ body[data-theme=dark] .context-menu{box-shadow:0 14px 40px #0007}
 .danger-row p{font-size:11px;color:var(--muted);margin:4px 0 0;max-width:300px}
 @media(max-width:520px){.management-grid{grid-template-columns:1fr}}
 .card-foot>.version{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+/* Keep every green update glyph centered inside its own control, independent of artwork SVG rules. */
+.sidebar-app .nav-item{margin-bottom:0}.sidebar-app{margin-bottom:3px}
+.update-arrow,.sidebar-update,.update-dot,.hub-update-icon,.hub-update-glyph{display:inline-flex;align-items:center;justify-content:center;line-height:1;padding:0}
+.update-arrow>svg,.sidebar-update>svg,.update-dot>svg,.hub-update-icon>svg{display:block;flex:none;margin:0;width:15px;height:15px;max-width:none;max-height:none}
+.sidebar-update>svg{width:14px;height:14px}
+.hub-update-glyph>svg{display:block;flex:none;margin:0;width:18px;height:18px;max-width:none;max-height:none}
+.update-action{display:inline-flex;align-items:center;justify-content:center;gap:7px}
+.update-action>svg{display:block;flex:none;margin:0;width:15px;height:15px;max-width:none;max-height:none}

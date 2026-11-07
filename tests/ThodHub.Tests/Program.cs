@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.IO.Compression;
 using System.Security.Cryptography;
 using System.Text.Json;
@@ -45,6 +46,9 @@ try
     {
         var m=new ModuleManifest{Id="integrated-app",Version="1.0.0",Mode="standalone",Launch=new(){Executable="app/App.exe"},Integration=new(){Executable="app/App.exe",Arguments=["--register-integrations"]},Cleanup=new(){Executable="app/App.exe",Arguments=["--uninstall-context"]}};
         Contract.Manifest(m);
+        Contract.Manifest(m with {Stop=new(){Executable="app/App.exe",Arguments=["--stop"]}});
+        ExpectThrows(()=>Contract.Manifest(m with {Stop=new(){Executable="../outside.exe"}}));
+        ExpectThrows(()=>Contract.Manifest(m with {Stop=new(){Executable="app/App.exe",Arguments=["invalid\0argument"]}}));
         ExpectThrows(()=>Contract.Manifest(m with {Cleanup=null}));
         ExpectThrows(()=>Contract.Manifest(m with {Integration=new(){Executable="../outside.exe"}}));
         ExpectThrows(()=>Contract.Manifest(m with {Integration=new(){Executable="app/App.exe",Arguments=["invalid\0argument"]}}));
@@ -250,6 +254,29 @@ try
         ExpectThrows(()=>HubUpdater.Extract(bad,Path.Combine(root,"hub-update-bad-stage")));
         Assert(!File.Exists(Path.Combine(root,"escape.txt")));
         return Task.CompletedTask;
+    });
+    await Test("Maintenance stops a leftover module process without a stop hook", async () =>
+    {
+        var state=new HubStore(Path.Combine(root,"stop-process"));
+        var archive=Path.Combine(root,Guid.NewGuid()+".zip");
+        using(var zip=ZipFile.Open(archive,ZipArchiveMode.Create))
+        {
+            using(var writer=new StreamWriter(zip.CreateEntry("manifest.json").Open()))await writer.WriteAsync(HubJson.Write(new ModuleManifest{Id="stop-app",Version="1.0.0",Mode="standalone",Launch=new(){Executable="app/StopApp.exe"}}));
+            using(var writer=new StreamWriter(zip.CreateEntry("app/StopApp.exe").Open()))await writer.WriteAsync("placeholder");
+        }
+        var candidate=new CatalogApp{Id="stop-app",Name="Stop",Description="Stop",Repository="ThodProd/Stop",Mode="standalone",Release=await Describe(archive,"1.0.0","ThodProd/Stop")};
+        await new PackageInstaller(state).InstallAsync(archive,candidate);
+        var exe=Path.Combine(state.AppVersion("stop-app","1.0.0"),"app","StopApp.exe");
+        File.Copy(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.System),"cmd.exe"),exe,true);
+        using var process=Process.Start(new ProcessStartInfo(exe,"/c ping -n 60 127.0.0.1 > nul"){UseShellExecute=false,CreateNoWindow=true})!;
+        try
+        {
+            await Task.Delay(500);
+            Assert(ModuleProcessGuard.Find(state,"stop-app").Count==1);
+            await ModuleProcessGuard.StopAsync(state,"stop-app",grace:TimeSpan.FromMilliseconds(300));
+            Assert(ModuleProcessGuard.Find(state,"stop-app").Count==0);
+        }
+        finally { try { if(!process.HasExited)process.Kill(true); } catch { } }
     });
     Console.WriteLine($"PASS: {passed} tests");
 }

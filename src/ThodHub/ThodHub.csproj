@@ -5,7 +5,7 @@
     <UseWPF>true</UseWPF>
     <UseWindowsForms>true</UseWindowsForms>
     <AssemblyName>ThodHUB</AssemblyName>
-    <Version>0.2.4</Version>
+    <Version>0.2.5</Version>
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <ApplicationIcon>assets/thodhub.ico</ApplicationIcon>
   </PropertyGroup>

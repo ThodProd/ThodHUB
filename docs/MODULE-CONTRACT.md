@@ -74,6 +74,14 @@ Examples: [CopyAll](https://github.com/ThodProd/CopyAll/tree/main/hub) (.NET emb
 [ThodVPN](https://github.com/ThodProd/ThodVPN/tree/master/hub) (Python standalone).
 
 ## Context menu and cleanup (API 1)
+
+ThodHUB 0.2.5+ supports optional `stop: {executable:"worker/App.exe", arguments:["--stop-background"]}`.
+After closing the worker, the hub runs this hook before updates, uninstall, rollback and manual backup operations.
+The hook must idempotently stop only its own background process, wait for its exit, and preserve settings, autostart and registrations.
+It has the same path, environment, exit-code and 45-second timeout rules as integration hooks.
+If an older installed version has no `stop` hook, the hub waits briefly and then closes or terminates only processes whose executable is inside that module's install folder, so installing the update is not blocked forever.
+A windowed application is asked to close first; the user still closes it normally to keep unsaved work.
+Normal hub close does not invoke `stop`, so explicitly independent background work can continue.
 An optional `cleanup` has the same shape as launch: an executable inside the package and argument array.
 Example: `"cleanup":{"executable":"worker/CopyAll.Worker.exe","arguments":["--uninstall-context"]}`.
 It runs without elevation before uninstall, with a 45s timeout. A nonzero exit stops removal.
