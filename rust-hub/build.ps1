@@ -54,7 +54,7 @@ try {
         packageUrl = "https://github.com/ThodProd/ThodHUB/releases/download/$releaseTag/ThodHUB-$version-win-x64.zip"
         sha256 = $hash
         size = (Get-Item -LiteralPath $zip).Length
-        notes = [Text.Encoding]::UTF8.GetString([Convert]::FromBase64String('UnVzdC3Qv9C+0YDRgiBUaG9kSFVCOiDQuNC90YLQtdGA0YTQtdC50YEg0Lgg0L/QvtCy0LXQtNC10L3QuNC1INC60LDQuiDRgyBDIy3QstC10YDRgdC40LgsINC/0LvRjtGBINC+0YLQvNC10YLQutCwINC+0YLRgdGD0YLRgdGC0LLRg9GO0YnQuNGFINC/0YDQvtCz0YDQsNC80Lwg0YEg0LrQvdC+0L/QutCw0LzQuCDCq9Ch0LrQsNGH0LDRgtGMwrsg0LggwqvQo9C00LDQu9C40YLRjMK7Lg=='))
+        notes = (Get-Content -LiteralPath (Join-Path $root 'release-notes.md') -Raw -Encoding UTF8).Trim()
         platform = 'win-x64'
         hubApi = 1
     }

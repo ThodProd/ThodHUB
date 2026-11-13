@@ -1,6 +1,6 @@
 [package]
 name = "thodhub"
-version = "0.2.5"
+version = "0.2.6"
 edition = "2024"
 description = "ThodHUB — Rust port of the Windows hub shell"
 build = "build.rs"
