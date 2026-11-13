@@ -86,6 +86,24 @@ body[data-theme=dark] .context-menu{box-shadow:0 14px 40px #0007}
 .update-action>svg{display:block;flex:none;margin:0;width:15px;height:15px;max-width:none;max-height:none}
 
 .sidebar-app.missing .label small{display:block;color:#b4453b;font-size:10px;font-weight:600;line-height:1.3;margin-top:3px}
+.sidebar-app.missing{background:var(--surface);border-radius:9px;margin-bottom:6px}
+.sidebar-app.missing .nav-item{padding-right:44px}
+.sidebar-app.missing .drag-handle,.sidebar-app.missing .sidebar-update{display:none}
+.sidebar-missing-actions{position:absolute;right:4px;top:50%;transform:translateY(-50%);display:flex;flex-direction:row;align-items:center;gap:2px;z-index:2}
+.sidebar-action{display:grid;place-items:center;width:18px;height:18px;padding:0;border:0;border-radius:0;background:transparent;box-shadow:none;color:var(--muted);line-height:1}
+.sidebar-action svg{width:13px;height:13px}
+.sidebar-action:hover:not(:disabled){background:transparent;color:var(--text)}
+.sidebar-action.primary{color:var(--accent)}
+.sidebar-action.primary:hover:not(:disabled){background:transparent;color:var(--accent);opacity:.7}
+.sidebar-action.remove{color:#b4453b}
+.sidebar-action.remove:hover:not(:disabled){background:transparent;color:#8f2f27;opacity:.75}
+body[data-theme=dark] .sidebar-action.remove{color:#f0a8a1}
+body[data-theme=dark] .sidebar-action.remove:hover:not(:disabled){background:transparent;color:#ffc2bb}
+.card.missing{background:#f3f4f6;border-color:#e1e3e7}
+.card.missing .card-art>svg.art,.card.missing .card-art>img{filter:grayscale(1);opacity:.55}
+.card.missing .card-description,.card.missing .version{opacity:.85}
+body[data-theme=dark] .card.missing{background:#212226;border-color:#2d2e33}
+
 .status-chip.missing{color:#b4453b;border-color:#e7c3bf;background:#fbeeec}
 .danger-text{color:#b4453b}
 .danger-text:hover{color:#8f2f27}
