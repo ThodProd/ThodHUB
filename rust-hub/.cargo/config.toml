@@ -1,0 +1,13 @@
+[target.x86_64-pc-windows-gnu]
+linker = "D:/Projects/ThodPROD/.tools/llvm/llvm-mingw-20260616-ucrt-x86_64/bin/x86_64-w64-mingw32-clang.exe"
+ar = "D:/Projects/ThodPROD/.tools/llvm/llvm-mingw-20260616-ucrt-x86_64/bin/llvm-ar.exe"
+rustflags = [
+  "-L",
+  "D:/Projects/ThodPROD/rust-hub/.cargo/gcc-shim",
+]
+
+[env]
+CC_x86_64_pc_windows_gnu = "D:/Projects/ThodPROD/.tools/llvm/llvm-mingw-20260616-ucrt-x86_64/bin/x86_64-w64-mingw32-clang.exe"
+CXX_x86_64_pc_windows_gnu = "D:/Projects/ThodPROD/.tools/llvm/llvm-mingw-20260616-ucrt-x86_64/bin/x86_64-w64-mingw32-clang++.exe"
+AR_x86_64_pc_windows_gnu = "D:/Projects/ThodPROD/.tools/llvm/llvm-mingw-20260616-ucrt-x86_64/bin/llvm-ar.exe"
+RC_x86_64_pc_windows_gnu = "D:/Projects/ThodPROD/.tools/llvm/llvm-mingw-20260616-ucrt-x86_64/bin/llvm-rc.exe"
