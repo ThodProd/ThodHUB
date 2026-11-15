@@ -17,6 +17,7 @@ param(
     [Parameter(Mandatory=$true)][string]$Log
 )
 $ErrorActionPreference = 'Stop'
+Set-Location -LiteralPath $env:TEMP
 function Write-Log([string]$Message) {
     try { Add-Content -LiteralPath $Log -Value ((Get-Date).ToString('o') + ' ' + $Message) -Encoding UTF8 } catch {}
 }
@@ -43,7 +44,7 @@ try {
         New-Item -ItemType Directory -Path $Target -Force | Out-Null
         Copy-Item -Path (Join-Path $Stage '*') -Destination $Target -Recurse -Force
         Write-Log "starting updated hub"
-        $new = Start-Process -FilePath $exe -WorkingDirectory $Target -PassThru
+        $new = Start-Process -FilePath $exe -WorkingDirectory $Target -WindowStyle Normal -PassThru
         $started = $true
         Start-Sleep -Seconds 8
         if ($new.HasExited) { throw "updated hub exited with code $($new.ExitCode)" }
@@ -54,7 +55,7 @@ try {
         if (Test-Path -LiteralPath $Target) { Remove-Item -LiteralPath $Target -Recurse -Force -ErrorAction SilentlyContinue }
         if (Test-Path -LiteralPath $Backup) { Move-Item -LiteralPath $Backup -Destination $Target -Force }
         if (Test-Path -LiteralPath (Join-Path $Target 'ThodHUB.exe')) {
-            Start-Process -FilePath (Join-Path $Target 'ThodHUB.exe') -WorkingDirectory $Target | Out-Null
+            Start-Process -FilePath (Join-Path $Target 'ThodHUB.exe') -WorkingDirectory $Target -WindowStyle Normal | Out-Null
             $started = $true
         }
         throw
@@ -62,7 +63,7 @@ try {
 } catch {
     Write-Log "update failed: $($_.Exception.Message)"
     if (-not $started -and (Test-Path -LiteralPath (Join-Path $Target 'ThodHUB.exe'))) {
-        try { Start-Process -FilePath (Join-Path $Target 'ThodHUB.exe') -WorkingDirectory $Target | Out-Null } catch {}
+        try { Start-Process -FilePath (Join-Path $Target 'ThodHUB.exe') -WorkingDirectory $Target -WindowStyle Normal | Out-Null } catch {}
     }
 } finally {
     if (Test-Path -LiteralPath $Stage) { Remove-Item -LiteralPath $Stage -Recurse -Force -ErrorAction SilentlyContinue }
@@ -126,7 +127,8 @@ try {
         {
             UseShellExecute = false,
             CreateNoWindow = true,
-            WindowStyle = ProcessWindowStyle.Hidden
+            WindowStyle = ProcessWindowStyle.Hidden,
+            WorkingDirectory = Path.GetTempPath()
         };
         info.ArgumentList.Add("-NoProfile");
         info.ArgumentList.Add("-NonInteractive");
