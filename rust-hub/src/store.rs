@@ -109,40 +109,29 @@ impl HubStore {
     /// Reads the manifest only when the installed files are actually present.
     pub fn manifest_if_present(&self, id: &str) -> Option<ModuleManifest> {
         let app = self.installed(id)?;
-        if !self.app_present(&app) {
-            return None;
-        }
-        self.manifest(id).ok()
+        self.present_manifest(&app)
     }
 
     /// True when the recorded version folder and its entry point still exist.
     pub fn app_present(&self, app: &InstalledApp) -> bool {
-        let Ok(directory) = self.app_version(&app.id, &app.version) else {
-            return false;
-        };
-        if !directory.is_dir() {
-            return false;
-        }
-        let Ok(manifest) = util::json_read::<ModuleManifest>(&directory.join("manifest.json")) else {
-            return false;
-        };
+        self.present_manifest(app).is_some()
+    }
+
+    fn present_manifest(&self, app: &InstalledApp) -> Option<ModuleManifest> {
+        let directory = self.app_version(&app.id, &app.version).ok()?;
+        let manifest = util::json_read::<ModuleManifest>(&directory.join("manifest.json")).ok()?;
         if contract::manifest(&manifest).is_err()
             || manifest.id != app.id
             || manifest.version != app.version
         {
-            return false;
+            return None;
         }
         let entry = if manifest.mode == "embedded" {
-            manifest.ui.clone()
+            manifest.ui.as_deref()
         } else {
-            manifest.launch.as_ref().map(|l| l.executable.clone())
+            manifest.launch.as_ref().map(|l| l.executable.as_str())
         };
-        match entry {
-            Some(relative) => contract::inside(&directory, &relative)
-                .map(|p| p.is_file())
-                .unwrap_or(false),
-            None => false,
-        }
+        contract::inside(&directory, entry?).ok()?.is_file().then_some(manifest)
     }
 
     pub fn is_installed_present(&self, id: &str) -> bool {
@@ -151,11 +140,13 @@ impl HubStore {
             .unwrap_or(false)
     }
 
-    /// Returns a copy of settings where every installed entry carries the computed `missing` flag.
+    /// Returns settings with computed metadata about the installed packages.
     pub fn settings_view(&self) -> HubSettings {
         let mut settings = self.settings();
         for app in &mut settings.installed {
-            app.missing = !self.app_present(app);
+            let manifest = self.present_manifest(app);
+            app.missing = manifest.is_none();
+            app.primary_language = manifest.and_then(|manifest| manifest.primary_language);
         }
         settings
     }

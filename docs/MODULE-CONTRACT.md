@@ -64,6 +64,18 @@ Catalog entry:
 Catalog has schemaVersion:1 and an apps array. Modes must match manifest. Icons: library, resume, mixer, vpn, monitor, copy, code.
 Artwork must be an HTTPS raw.githubusercontent.com URL. See `registry/` and `schemas/`.
 
+### Primary language
+
+Both the package manifest and the catalog entry accept an optional `primaryLanguage` string
+such as `"primaryLanguage":"Rust"`. Use the same value in both for new releases.
+Choose the language that implements the app's main functionality in mixed-language projects.
+Examples: Rust, C#, Python, JavaScript, TypeScript, C++, C, Go, Java and Kotlin.
+
+For an installed version the card uses the language in its manifest first, then the catalog value.
+If neither supplies a value, the Rust hub can infer a language from GitHub's source-language
+statistics for the catalog repository. It prefers application code over scripts and markup,
+and caches the result for offline use. Without reliable metadata the badge can be absent.
+
 ## Data and lifecycle
 Installation: Apps/id/version; data: Data/id, outside versions. Updates preserve the previous version for rollback.
 Rollback does not reverse data migrations: keep migrations backward-compatible or back up before migrating.

@@ -30,6 +30,12 @@ pub struct CatalogApp {
     pub mode: String,
     pub artwork_url: Option<String>,
     pub icon_url: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub primary_language: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub detected_language: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub language_checked_at: Option<DateTime<Utc>>,
     pub release: Option<PackageRelease>,
     pub release_error: Option<String>,
 }
@@ -46,6 +52,9 @@ impl Default for CatalogApp {
             mode: "embedded".into(),
             artwork_url: None,
             icon_url: None,
+            primary_language: None,
+            detected_language: None,
+            language_checked_at: None,
             release: None,
             release_error: None,
         }
@@ -113,6 +122,8 @@ pub struct ModuleManifest {
     pub version: String,
     pub platform: String,
     pub mode: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub primary_language: Option<String>,
     pub ui: Option<String>,
     pub launch: Option<WorkerDefinition>,
     pub requires_elevation: bool,
@@ -132,6 +143,7 @@ impl Default for ModuleManifest {
             version: String::new(),
             platform: "win-x64".into(),
             mode: "embedded".into(),
+            primary_language: None,
             ui: None,
             launch: None,
             requires_elevation: false,
@@ -172,6 +184,9 @@ pub struct InstalledApp {
     /// Computed for the UI snapshot only. Never written to hub.json.
     #[serde(default, skip_serializing_if = "is_false")]
     pub missing: bool,
+    /// Computed from the installed manifest for the UI snapshot.
+    #[serde(skip_deserializing, skip_serializing_if = "Option::is_none")]
+    pub primary_language: Option<String>,
 }
 impl Default for InstalledApp {
     fn default() -> Self {
@@ -182,6 +197,7 @@ impl Default for InstalledApp {
             previous_version: None,
             installed_at: Utc::now(),
             missing: false,
+            primary_language: None,
         }
     }
 }

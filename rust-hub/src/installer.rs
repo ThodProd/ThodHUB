@@ -233,7 +233,7 @@ impl PackageInstaller {
                 previous_version: Some(old.version.clone()),
                 installed_at: old.installed_at,
                 integration_error: old.integration_error.clone(),
-                missing: false,
+                ..Default::default()
             });
         })
     }

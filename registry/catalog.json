@@ -3,6 +3,7 @@
   "apps": [
     {
       "id": "o-sebe",
+      "primaryLanguage": "TypeScript",
       "name": "О себе",
       "description": "Шесть шаблонов резюме, сохранение черновиков и экспорт готового документа в PDF.",
       "repository": "ThodProd/o-sebe",
@@ -15,6 +16,7 @@
     },
     {
       "id": "thodmixer",
+      "primaryLanguage": "C#",
       "name": "ThodMixer",
       "description": "Управление аудиодорожками, маршрутизация звука и подключение MIDI-контроллеров.",
       "repository": "ThodProd/ThodMixer",
@@ -27,6 +29,7 @@
     },
     {
       "id": "thodvpn",
+      "primaryLanguage": "Python",
       "name": "ThodVPN",
       "description": "Профили подключений, выбор сервера и настройка туннелирования.",
       "repository": "ThodProd/ThodVPN",
@@ -39,6 +42,7 @@
     },
     {
       "id": "thodmonitor",
+      "primaryLanguage": "C#",
       "name": "Thod Monitor",
       "description": "Датчики компьютера, настраиваемые оверлеи и уведомления о нагрузке.",
       "repository": "ThodProd/ThodMonitor",
@@ -51,6 +55,7 @@
     },
     {
       "id": "copyall",
+      "primaryLanguage": "C#",
       "name": "CopyAll",
       "description": "Копирование всех путей в папке через контекстное меню. Просмотр структуры и экспорт в текст.",
       "repository": "ThodProd/CopyAll",
@@ -62,6 +67,7 @@
     },
     {
       "id": "thodmedia",
+      "primaryLanguage": "C#",
       "name": "ThodMedia",
       "description": "Преобразование фото, видео и звука. Сжатие, обрезка и работа с аудиодорожками без отправки файлов в сеть.",
       "repository": "ThodProd/ThodMedia",
@@ -74,6 +80,7 @@
     },
     {
       "id": "thodview",
+      "primaryLanguage": "C#",
       "name": "ThodView",
       "description": "Просмотр, масштабирование, поворот и обрезка изображений. Навигация по папкам и работа с метаданными.",
       "repository": "ThodProd/ThodView",
@@ -86,6 +93,7 @@
     },
     {
       "id": "thodclip",
+      "primaryLanguage": "C#",
       "name": "ThodClip",
       "description": "Вся история буфера и скриншотов под рукой. Поиск, календарь, закрепление и копирование обратно.",
       "repository": "ThodProd/ThodClip",
@@ -98,9 +106,10 @@
     },
     {
       "id": "thodcanvas",
+      "primaryLanguage": "JavaScript",
       "name": "ThodCanvas",
       "kind": "Редактор изображений",
-      "description": "Слои, кисти, текст и выделения. Удаление и замена фона нейросетью, экспорт в исходном разрешении.",
+      "description": "Слои, кисть, заливка, текст на холсте и кадрирование. Выделение, AI-выделение объекта, удаление фона и экспорт PNG в исходном разрешении.",
       "repository": "ThodProd/ThodCanvas",
       "category": "Работа",
       "icon": "library",
@@ -110,15 +119,94 @@
     },
     {
       "id": "forcedeletehelper",
-      "name": "ForceDeleteHelper",
+      "primaryLanguage": "C#",
+      "name": "ForceDelete",
       "kind": "Удаление файлов",
-      "description": "Анализ блокировок, остановка удерживающих файл процессов и удаление файлов или папок разными способами.",
+      "description": "Безвозвратное удаление файлов и папок с остановкой блокирующих процессов. Затирание данных и пункт в меню Проводника.",
       "repository": "ThodProd/ForceDeleteHelper",
       "category": "Система",
       "icon": "copy",
-      "mode": "standalone",
-      "iconUrl": "https://raw.githubusercontent.com/ThodProd/ThodHUB-Registry/main/assets/icons/forcedeletehelper.svg",
+      "mode": "embedded",
+      "iconUrl": "https://raw.githubusercontent.com/ThodProd/ThodHUB-Registry/main/assets/icons/forcedeletehelper.svg?v=2",
       "artworkUrl": "https://raw.githubusercontent.com/ThodProd/ThodHUB-Registry/main/assets/forcedeletehelper.svg"
+    },
+    {
+      "id": "ambilight",
+      "primaryLanguage": "C#",
+      "name": "Ambilight",
+      "kind": "Подсветка монитора",
+      "description": "Подсветка краёв экрана на ESP32: точечная калибровка ленты, живой предпросмотр, сценарии и расписание дня и ночи.",
+      "repository": "ThodProd/Ambilight",
+      "category": "Система",
+      "icon": "monitor",
+      "mode": "embedded",
+      "iconUrl": "https://raw.githubusercontent.com/ThodProd/ThodHUB-Registry/main/assets/icons/ambilight.svg",
+      "artworkUrl": "https://raw.githubusercontent.com/ThodProd/ThodHUB-Registry/main/assets/ambilight.svg"
+    },
+    {
+      "id": "thoduup",
+      "primaryLanguage": "C#",
+      "name": "ThodUUP",
+      "kind": "Сборка ISO",
+      "description": "Скачивание файлов Windows 10 и 11 с UUP dump и сборка установочного ISO.",
+      "repository": "ThodProd/ThodUUP",
+      "category": "Система",
+      "icon": "monitor",
+      "mode": "embedded",
+      "iconUrl": "https://raw.githubusercontent.com/ThodProd/ThodHUB-Registry/main/assets/icons/thoduup.svg",
+      "artworkUrl": "https://raw.githubusercontent.com/ThodProd/ThodHUB-Registry/main/assets/thoduup.svg"
+    },
+    {
+      "id": "thoddrop",
+      "primaryLanguage": "TypeScript",
+      "name": "ThodDrop",
+      "kind": "Передача файлов",
+      "description": "Отправка файлов, фото и буфера обмена между телефоном и ПК по Wi-Fi со сквозным шифрованием. Без аккаунта, платных функций и статистики.",
+      "repository": "ThodProd/ThodDrop",
+      "category": "Сеть",
+      "icon": "library",
+      "iconUrl": "https://raw.githubusercontent.com/ThodProd/ThodHUB-Registry/main/assets/icons/thoddrop.svg",
+      "mode": "embedded",
+      "artworkUrl": "https://raw.githubusercontent.com/ThodProd/ThodHUB-Registry/main/assets/thoddrop.svg"
+    },
+    {
+      "id": "thodshot",
+      "primaryLanguage": "Rust",
+      "name": "ThodShot",
+      "description": "Снимок области или экрана по PrintScreen, копирование, сохранение и распознавание текста без интернета.",
+      "repository": "ThodProd/ThodShot",
+      "category": "Система",
+      "icon": "monitor",
+      "mode": "standalone",
+      "artworkUrl": "https://raw.githubusercontent.com/ThodProd/ThodHUB-Registry/main/assets/thodshot.svg",
+      "kind": "Скриншоты",
+      "iconUrl": "https://raw.githubusercontent.com/ThodProd/ThodHUB-Registry/main/assets/icons/thodshot.svg"
+    },
+    {
+      "id": "thodtorrent",
+      "primaryLanguage": "Rust",
+      "name": "ThodTorrent",
+      "kind": "Торрент-клиент",
+      "description": "Скачивание magnet-ссылок и торрентов. Выбор папки, настраиваемые столбцы и автоматическая остановка без отдачи.",
+      "repository": "ThodProd/ThodTorrent",
+      "category": "Сеть",
+      "icon": "library",
+      "mode": "standalone",
+      "iconUrl": "https://raw.githubusercontent.com/ThodProd/ThodHUB-Registry/main/assets/icons/thodtorrent.svg",
+      "artworkUrl": "https://raw.githubusercontent.com/ThodProd/ThodHUB-Registry/main/assets/thodtorrent.svg"
+    },
+    {
+      "id": "thoddriver",
+      "primaryLanguage": "Rust",
+      "name": "ThodDriver",
+      "kind": "Обновление драйверов",
+      "description": "Поиск и установка обновлений драйверов из Windows Update. Резервная копия, точка восстановления и установка из папки INF.",
+      "repository": "ThodProd/ThodDriver",
+      "category": "Система",
+      "icon": "monitor",
+      "mode": "standalone",
+      "iconUrl": "https://raw.githubusercontent.com/ThodProd/ThodHUB-Registry/main/assets/icons/thoddriver.svg",
+      "artworkUrl": "https://raw.githubusercontent.com/ThodProd/ThodHUB-Registry/main/assets/thoddriver.svg"
     }
   ]
 }

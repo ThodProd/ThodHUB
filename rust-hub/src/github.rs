@@ -1,4 +1,6 @@
+use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
+use std::sync::LazyLock;
 use std::time::{Duration, Instant};
 
 use anyhow::{anyhow, Result};
@@ -19,6 +21,26 @@ use crate::util;
 pub struct GitHubCatalog {
     client: reqwest::Client,
     download_client: reqwest::Client,
+}
+
+static BUNDLED_CATALOG: LazyLock<Catalog> = LazyLock::new(|| {
+    util::json_read_text(include_str!("../catalog.json")).expect("bundled catalog is valid JSON")
+});
+
+fn same_project(left: &CatalogApp, right: &CatalogApp) -> bool {
+    left.id == right.id && left.repository.eq_ignore_ascii_case(&right.repository)
+}
+
+fn fill_known_languages(catalog: &mut Catalog) {
+    for app in &mut catalog.apps {
+        if app.primary_language.is_none() {
+            app.primary_language = BUNDLED_CATALOG
+                .apps
+                .iter()
+                .find(|known| same_project(known, app))
+                .and_then(|known| known.primary_language.clone());
+        }
+    }
 }
 
 #[derive(Clone, Debug)]
@@ -61,8 +83,9 @@ impl GitHubCatalog {
     pub fn load_cached(&self, store: &HubStore, bundled_path: &Path) -> Result<Catalog> {
         let cache = store.cache_root().join("catalog.json");
         if cache.exists() {
-            if let Ok(catalog) = util::json_read::<Catalog>(&cache) {
+            if let Ok(mut catalog) = util::json_read::<Catalog>(&cache) {
                 if contract::validate_catalog(&catalog).is_ok() {
+                    fill_known_languages(&mut catalog);
                     return Ok(catalog);
                 }
             }
@@ -107,6 +130,8 @@ impl GitHubCatalog {
             })
             .collect();
         catalog.apps.extend(retired);
+        fill_known_languages(&mut catalog);
+        self.refresh_languages(&mut catalog, previous).await;
 
         let client = self.client.clone();
         let catalog_repository = repository.clone();
@@ -155,6 +180,52 @@ impl GitHubCatalog {
         let text = util::json_write(&catalog)?;
         util::write_atomic(&store.cache_root().join("catalog.json"), &text)?;
         Ok(catalog)
+    }
+
+    async fn refresh_languages(&self, catalog: &mut Catalog, previous: &Catalog) {
+        let now = Utc::now();
+        let mut pending = Vec::new();
+        for (index, app) in catalog.apps.iter_mut().enumerate() {
+            app.detected_language = None;
+            app.language_checked_at = None;
+            if app.primary_language.is_some() {
+                continue;
+            }
+            if let Some(old) = previous.apps.iter().find(|old| same_project(old, app)) {
+                app.detected_language = old.detected_language.clone();
+                app.language_checked_at = old.language_checked_at;
+            }
+            if app.language_checked_at.is_some_and(|checked| {
+                let age = now - checked;
+                let hours = if app.detected_language.is_some() { 24 } else { 1 };
+                age >= chrono::TimeDelta::zero() && age < chrono::TimeDelta::hours(hours)
+            }) {
+                continue;
+            }
+            pending.push((index, app.repository.clone()));
+        }
+
+        let mut requests = stream::iter(pending)
+            .map(|(index, repository)| async move {
+                let url = format!("https://api.github.com/repos/{repository}/languages");
+                let result = match get_text(&self.client, &url, 32_768).await {
+                    Ok(Some(text)) => util::json_read_text(&text).ok().map(primary_language),
+                    Ok(None) => Some(None),
+                    Err(_) => None,
+                };
+                (index, result)
+            })
+            .buffer_unordered(4);
+        let _ = tokio::time::timeout(Duration::from_secs(6), async {
+            while let Some((index, result)) = requests.next().await {
+                let app = &mut catalog.apps[index];
+                app.language_checked_at = Some(now);
+                if let Some(language) = result {
+                    app.detected_language = language;
+                }
+            }
+        })
+        .await;
     }
 
     async fn find_latest_release(
@@ -449,6 +520,72 @@ async fn find_latest_release(
         return Ok(Some(descriptor));
     }
     Ok(None)
+}
+
+fn primary_language(languages: BTreeMap<String, u64>) -> Option<String> {
+    languages
+        .into_iter()
+        .filter(|(name, bytes)| *bytes > 0 && !name.trim().is_empty())
+        .filter_map(|(name, bytes)| {
+            let priority = match name.as_str() {
+                "Markdown" | "MDX" | "JSON" | "YAML" | "TOML" | "XML" | "INI" | "SVG"
+                | "Dockerfile" | "Makefile" | "CMake" | "Inno Setup" => return None,
+                "HTML" | "CSS" | "SCSS" | "Less" => 0,
+                "PowerShell" | "Shell" | "Batchfile" | "VBScript" => 1,
+                _ => 2,
+            };
+            Some(((priority, bytes), name))
+        })
+        .max_by_key(|(rank, _)| *rank)
+        .map(|(_, name)| name)
+}
+
+#[cfg(test)]
+mod language_tests {
+    use super::*;
+
+    #[test]
+    fn detection_prefers_app_code_and_supports_static_projects() {
+        let languages = BTreeMap::from([
+            ("TypeScript".into(), 200),
+            ("JavaScript".into(), 100),
+            ("HTML".into(), 3_000),
+            ("PowerShell".into(), 2_000),
+        ]);
+        assert_eq!(primary_language(languages).as_deref(), Some("TypeScript"));
+        let website = BTreeMap::from([("HTML".into(), 200), ("CSS".into(), 100)]);
+        assert_eq!(primary_language(website).as_deref(), Some("HTML"));
+        assert_eq!(primary_language(BTreeMap::from([("JSON".into(), 300)])), None);
+    }
+
+    #[test]
+    fn bundled_language_respects_explicit_metadata_and_repository_identity() {
+        let mut catalog = Catalog {
+            apps: vec![
+                CatalogApp {
+                    id: "thodshot".into(),
+                    repository: "thodprod/thodshot".into(),
+                    ..Default::default()
+                },
+                CatalogApp {
+                    id: "thodclip".into(),
+                    repository: "ThodProd/ThodClip".into(),
+                    primary_language: Some("Go".into()),
+                    ..Default::default()
+                },
+                CatalogApp {
+                    id: "thodshot".into(),
+                    repository: "Other/ThodShot".into(),
+                    ..Default::default()
+                },
+            ],
+            ..Default::default()
+        };
+        fill_known_languages(&mut catalog);
+        assert_eq!(catalog.apps[0].primary_language.as_deref(), Some("Rust"));
+        assert_eq!(catalog.apps[1].primary_language.as_deref(), Some("Go"));
+        assert_eq!(catalog.apps[2].primary_language, None);
+    }
 }
 
 async fn get_text(client: &reqwest::Client, url: &str, limit: usize) -> Result<Option<String>> {
