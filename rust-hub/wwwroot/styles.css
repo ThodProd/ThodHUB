@@ -148,3 +148,9 @@ body[data-theme=dark] .card.missing{background:#212226;border-color:#2d2e33}
 .language-dart { --language-bg: #a8dbfa; --language-text: #163753; }
 .language-html { --language-bg: #ffd3b9; --language-text: #6e3018; font-size: 8px; }
 .language-css { --language-bg: #53489c; --language-text: #fff; }
+
+/* Removal progress: uninstall can upload a large backup for several minutes. */
+.remove-status{margin:0 0 12px;font-size:12px;line-height:1.6;color:var(--muted)}
+.remove-progress{height:3px;margin:0 0 16px;background:var(--line);border-radius:3px;overflow:hidden}
+.remove-progress span{display:block;height:100%;width:35%;background:var(--accent);animation:remove-progress 1.2s ease-in-out infinite}
+@keyframes remove-progress{0%{transform:translateX(-100%)}100%{transform:translateX(300%)}}

@@ -661,7 +661,9 @@ impl Hub {
                 self.module_dirty.store(false, Ordering::SeqCst);
             }
             if params.get("backup").and_then(|v| v.as_bool()).unwrap_or(false) {
-                self.create_backup(id, true).await?;
+                // Uninstall keeps the snapshot locally; uploading a module database to GitHub
+                // is never implicit and can take minutes for large data folders.
+                self.create_backup(id, false).await?;
             }
             if present {
                 StandaloneLauncher::cleanup(&self.store, id).await?;
@@ -1186,6 +1188,10 @@ impl Hub {
     async fn create_backup(&self, id: &str, upload: bool) -> Result<BackupEntry> {
         let version = self.store.installed(id).map(|a| a.version);
         let store = BackupStore::new(&self.store);
+        self.emit(&json!({
+            "event": "notice",
+            "text": "Создаём резервную копию данных…",
+        }));
         let mut entry = store
             .create(id, version.as_deref(), &CancellationToken::new())
             .await?;
@@ -1193,7 +1199,10 @@ impl Hub {
         if upload && credentials.exists() {
             self.emit(&json!({
                 "event": "notice",
-                "text": "Локальная копия сохранена. Загружаем её в приватный GitHub…",
+                "text": format!(
+                    "Локальная копия {} сохранена. Загружаем её в приватный GitHub… Это может занять несколько минут.",
+                    util::human_size(entry.size)
+                ),
             }));
             let repository = self.store.settings().backup_repository;
             let token = credentials.read()?;
@@ -1205,6 +1214,11 @@ impl Hub {
                     anyhow!("Локальная копия сохранена, но отправить в GitHub не удалось. {e}")
                 })?;
             entry.cloud = true;
+        } else {
+            self.emit(&json!({
+                "event": "notice",
+                "text": format!("Локальная копия {} сохранена.", util::human_size(entry.size)),
+            }));
         }
         self.emit(&json!({ "event": "notice", "text": "" }));
         Ok(entry)

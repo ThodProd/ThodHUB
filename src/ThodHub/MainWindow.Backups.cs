@@ -28,14 +28,22 @@ public partial class MainWindow
     }
     private async Task<BackupEntry> CreateBackupAsync(string id,bool upload)
     {
+        Send(new{@event="notice",text="Создаём резервную копию данных…"});
         var result=await Task.Run(()=>BackupFiles.CreateAsync(id,_store.Settings.Installed.FirstOrDefault(a=>a.Id==id)?.Version));
         if(upload&&BackupCredentials.Exists)
         {
-            Send(new{@event="notice",text="Локальная копия сохранена. Загружаем её в приватный GitHub…"});
+            Send(new{@event="notice",text=$"Локальная копия {HumanSize(result.Size)} сохранена. Загружаем её в приватный GitHub… Это может занять несколько минут."});
             try{using var cloud=CloudBackups();await cloud.UploadAsync(BackupFiles.FilePath(result.Name));result=result with{Cloud=true};}
             catch(Exception e){throw new IOException("Локальная копия сохранена, но отправить в GitHub не удалось. "+e.Message);}
         }
+        else Send(new{@event="notice",text=$"Локальная копия {HumanSize(result.Size)} сохранена."});
         Send(new{@event="notice",text=""});return result;
+    }
+    private static string HumanSize(long bytes)
+    {
+        if(bytes>=1024L*1024*1024)return $"{bytes/(1024.0*1024*1024):0.0} ГБ";
+        if(bytes>=1024*1024)return $"{bytes/(1024.0*1024):0.0} МБ";
+        return $"{Math.Max(1,(bytes+1023)/1024)} КБ";
     }
     private async Task<object?> HandleBackupAsync(string method,JsonElement p)
     {

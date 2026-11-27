@@ -406,6 +406,17 @@ pub fn os_error(context: &str, error: std::io::Error) -> anyhow::Error {
     anyhow!("{context} {}", error)
 }
 
+pub fn human_size(bytes: i64) -> String {
+    let value = bytes.max(0) as f64;
+    if value >= 1024.0 * 1024.0 * 1024.0 {
+        format!("{:.1} ГБ", value / (1024.0 * 1024.0 * 1024.0))
+    } else if value >= 1024.0 * 1024.0 {
+        format!("{:.1} МБ", value / (1024.0 * 1024.0))
+    } else {
+        format!("{} КБ", (value / 1024.0).ceil() as i64)
+    }
+}
+
 pub fn read_limited(path: &Path, limit: u64) -> Result<String> {
     let length = std::fs::metadata(path)?.len();
     if length > limit {

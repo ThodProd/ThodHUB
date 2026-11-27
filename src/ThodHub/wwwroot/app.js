@@ -42,14 +42,15 @@ function artwork(app) {
 let snapshot = { catalog:{apps:[]}, settings:{theme:'system',checkOnStartup:true,autoInstallUpdates:false,installed:[],sidebarOrder:[]}, native:false, hubVersion:'0.1.0', dataRoot:'' };
 let route='library', category='Все', filter='', dragId=null, activeId=null, pendingInstall=null, syncing=false;
 let toastTimer;
-let removeId=null, fullscreen=false, moduleGeneration=0, contextId=null;
+let removeId=null, removeBusy=false, fullscreen=false, moduleGeneration=0, contextId=null;
 const downloads=new Map(), pending=new Map();
 const isNative=!!window.chrome?.webview;
 const native = (method, params={}) => {
   if(!isNative) return Promise.reject(new Error('Это предпросмотр. Системные действия доступны в приложении ThodHUB.'));
   return new Promise((resolve,reject)=>{
     const id=crypto.randomUUID();
-    const timeout=setTimeout(()=>{pending.delete(id);reject(new Error('Время ожидания истекло.'));},(method==='app.install'||method==='hub.installUpdate'||method.startsWith('backups.'))?16*60*1000:90*1000);
+    const long=method==='app.install'||method==='app.uninstall'||method==='app.rollback'||method==='hub.installUpdate'||method.startsWith('backups.');
+    const timeout=setTimeout(()=>{pending.delete(id);reject(new Error('Время ожидания истекло. Операция может ещё выполняться в фоне.'));},long?16*60*1000:90*1000);
     pending.set(id,{resolve,reject,timeout});
     window.chrome.webview.postMessage({id,method,params});
   });
@@ -57,7 +58,7 @@ const native = (method, params={}) => {
 if(isNative) window.chrome.webview.addEventListener('message', e=>{
   const m=e.data;
   if(m.event==='fullscreen'){fullscreen=m.enabled;document.body.classList.toggle('module-fullscreen',fullscreen);return;}
-  if(m.event==='notice'){notice(m.text);return;}
+  if(m.event==='notice'){notice(m.text);if(removeBusy&&$('#remove-dialog').open){const status=$('#remove-status');if(status){status.textContent=m.text||'Удаляем…';status.hidden=false;}}return;}
   if(m.event==='install.progress'){downloads.set(m.id,{progress:m.progress,stage:m.stage});updateProgress(m.id);return;}
   if(m.event==='hub.progress'){
     const track=$('#hub-update-progress'),status=$('#hub-update-status');
@@ -274,16 +275,21 @@ async function setFullscreen(enabled){
   const button=$('[data-fullscreen]');if(button){button.title=enabled?'Выйти из полноэкранного режима (Esc)':'На весь экран (F11)';button.setAttribute('aria-label',button.title);}
 }
 function confirmRemoval(id){
-  removeId=id;$('#remove-data').checked=false;$('#remove-backup').checked=true;
+  removeId=id;removeBusy=false;$('#remove-data').checked=false;$('#remove-backup').checked=true;
   const name=snapshot.catalog.apps.find(a=>a.id===id)?.name||id;
   $('#remove-description').textContent=`«${name}» будет удалена с компьютера вместе с её ярлыком. Программа останется доступной в каталоге для повторной установки.`;
+  $('#remove-status').textContent='';$('#remove-status').hidden=true;
+  $('#remove-progress').hidden=true;
   $('#remove-dialog').showModal();
 }
 $('#confirm-remove').onclick=async()=>{
   const id=removeId;if(!id)return;const button=$('#confirm-remove');button.disabled=true;
+  removeBusy=true;
+  const status=$('#remove-status');status.textContent='Удаляем… Если сохраняется резервная копия, это может занять несколько минут.';status.hidden=false;
+  $('#remove-progress').hidden=false;
   try{snapshot=await native('app.uninstall',{id,deleteData:$('#remove-data').checked,backup:$('#remove-backup').checked});document.querySelectorAll('dialog[open]').forEach(d=>d.close());await navigate('library');notify('Программа и ярлык удалены.');}
-  catch(e){notify(e.message);}
-  finally{button.disabled=false;}
+  catch(e){status.textContent=e.message;status.hidden=false;notify(e.message);}
+  finally{removeBusy=false;$('#remove-progress').hidden=true;button.disabled=false;}
 };
 async function saveSettings(){
   if(!isNative){applyTheme();render();return;}

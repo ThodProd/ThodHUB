@@ -295,7 +295,8 @@ public partial class MainWindow : Window
                 if(_activeModule == appId) { _activeModule = null;_moduleDirty=false; }
                 if(method == "app.uninstall")
                 {
-                    if(p.TryGetProperty("backup",out var backup)&&backup.GetBoolean())await CreateBackupAsync(appId,true);
+                    // Keep the removal snapshot local: uploading a module database to GitHub is never implicit.
+                    if(p.TryGetProperty("backup",out var backup)&&backup.GetBoolean())await CreateBackupAsync(appId,false);
                     await StandaloneLauncher.CleanupAsync(_store,appId);
                     var deleteData=p.TryGetProperty("deleteData",out var delete)&&delete.GetBoolean();
                     await Task.Run(()=>_installer.UninstallAsync(appId,deleteData));
